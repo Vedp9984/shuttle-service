@@ -6,3 +6,4 @@
 ### Docs Folder:
 - Contains SRS
 - Class Diagram
+- Sequence Diagrams
