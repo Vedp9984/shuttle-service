@@ -19,10 +19,10 @@ function Register() {
   const handleRegister = async () => {
     try {
       const res = await axios.post("http://localhost:5000/api/auth/register", form);
-      setMsg("✅ Registration successful!");
+      setMsg("Registration successful!");
       localStorage.setItem("token", res.data.token); // optional
     } catch (err) {
-      setMsg("❌ " + (err.response?.data?.msg || "Error"));
+      setMsg((err.response?.data?.msg || "Error"));
     }
   };
 

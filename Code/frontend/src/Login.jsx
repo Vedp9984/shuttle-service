@@ -43,7 +43,7 @@ const Login = () => {
         sessionStorage.setItem("token", res.data.token);
       }
     } catch (err) {
-      alert("❌ Login failed: " + (err.response?.data?.msg || "Server error"));
+      alert("Login failed: " + (err.response?.data?.msg || "Server error"));
     }
   };
 

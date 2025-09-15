@@ -51,13 +51,13 @@ const CreateAccountUser = () => {
         userType,
       });
 
-      alert(`✅ ${userType} account created successfully!`);
+      alert(`${userType} account created successfully!`);
       console.log("Register response:", res.data);
 
       localStorage.setItem("token", res.data.token);
       window.location.href = "/"; // redirect to login
     } catch (err) {
-      alert("❌ Registration failed: " + (err.response?.data?.msg || "Server error"));
+      alert("Registration failed: " + (err.response?.data?.msg || "Server error"));
     }
   };
 
