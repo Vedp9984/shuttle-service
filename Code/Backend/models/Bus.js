@@ -1,14 +1,13 @@
-// models/Bus.js
 const mongoose = require('mongoose');
-const { Schema } = mongoose;
+const Schema = mongoose.Schema;
 
-const BusSchema = new Schema({
+const busSchema = new Schema({
   busNumber: { type: String, required: true, unique: true },
-  capacity: { type: Number, default: 0 },
-  model: String,
-  currentLatitude: Number,
-  currentLongitude: Number,
-  lastUpdated: Date
+  capacity: { type: Number, required: true },
+  model: { type: String },
+  currentLatitude: { type: Number },
+  currentLongitude: { type: Number },
+  lastUpdated: { type: Date },
 });
 
-module.exports = mongoose.model('Bus', BusSchema);
+module.exports = mongoose.model('Bus', busSchema);
