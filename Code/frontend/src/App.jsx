@@ -1,4 +1,8 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import React from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
+import Navbar from "./components/Navbar";
+import Footer from "./components/Footer";
+import Home from "./pages/Home";
 import Login from "./Login";
 import CreateAccountUser from "./CreateAccountUser";
 import Welcome from "./Welcome";
