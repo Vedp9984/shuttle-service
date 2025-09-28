@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import axios from "axios";
-import "./App.css";
+import "../App.css"; // Changed from "./App.css" to "../App.css"
 
 const CreateAccountUser = () => {
     const navigate = useNavigate();
