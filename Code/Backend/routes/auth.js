@@ -1,77 +1,62 @@
+// routes/auth.js
 const express = require('express');
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
-const User = require('../models/User');
-
 const router = express.Router();
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
-// Register
+const User = require('../models/User');
+const Admin = require('../models/Admin');
+const Driver = require('../models/Driver');
+
+const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS || '10');
+const jwtSecret = process.env.JWT_SECRET;
+const jwtExpires = process.env.JWT_EXPIRES_IN || '7d';
+
+// helper to sign token
+function signToken(payload) {
+  return jwt.sign(payload, jwtSecret, { expiresIn: jwtExpires });
+}
+
+// Register user (basic)
 router.post('/register', async (req, res) => {
   const { username, email, password, firstName, lastName, phoneNumber } = req.body;
-
+  if (!username || !email || !password) return res.status(400).json({ error: 'Missing required fields' });
   try {
-    // Check if user exists
-    let existing = await User.findOne({ $or: [{ username }, { email }] });
-    if (existing) {
-      return res.status(400).json({ msg: "User already exists" });
-    }
-
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    const hashed = await bcrypt.hash(password, salt);
-
-    // Create new user
-    const newUser = new User({
-      username,
-      email,
-      passwordHash: hashed,
-      firstName,
-      lastName,
-      phoneNumber
-    });
-
-    await newUser.save();
-
-    // Generate JWT
-    const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
-
-    res.json({
-      token,
-      user: {
-        id: newUser._id,
-        username: newUser.username,
-        email: newUser.email
-      }
-    });
+    const hashed = await bcrypt.hash(password, saltRounds);
+    const user = new User({ username, email, passwordHash: hashed, firstName, lastName, phoneNumber });
+    await user.save();
+    const token = signToken({ id: user._id, role: 'User', username: user.username });
+    res.status(201).json({ token, user });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ msg: "Server error" });
+    res.status(500).json({ error: 'Registration failed' });
   }
 });
 
-// Login
+// Login (for User/Admin/Driver)
 router.post('/login', async (req, res) => {
-  const { username, password } = req.body;
+  const { usernameOrEmail, password, role } = req.body;
+  if (!usernameOrEmail || !password) return res.status(400).json({ error: 'Missing credentials' });
 
   try {
-    // Find user
-    const user = await User.findOne({ username });
-    if (!user) return res.status(400).json({ msg: "User not found" });
+    let record = null;
+    if (role === 'Admin') {
+      record = await Admin.findOne({ $or: [{ username: usernameOrEmail }, { email: usernameOrEmail }] });
+    } else if (role === 'Driver') {
+      record = await Driver.findOne({ $or: [{ username: usernameOrEmail }, { email: usernameOrEmail }] });
+    } else {
+      record = await User.findOne({ $or: [{ username: usernameOrEmail }, { email: usernameOrEmail }] });
+    }
+    if (!record) return res.status(401).json({ error: 'Invalid credentials' });
 
-    // Compare password (bcrypt check)
-    const isMatch = await bcrypt.compare(password, user.passwordHash);
-    if (!isMatch) return res.status(400).json({ msg: "Invalid password" });
+    const ok = await bcrypt.compare(password, record.passwordHash);
+    if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
 
-    // Generate token
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
-
-    res.json({
-      token,
-      user: { id: user._id, username: user.username, email: user.email }
-    });
+    const token = signToken({ id: record._id, role: role || (record instanceof Admin ? 'Admin' : (record instanceof Driver ? 'Driver' : 'User')), username: record.username || record.name });
+    res.json({ token, user: record });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ msg: "Server error" });
+    res.status(500).json({ error: 'Login failed' });
   }
 });
 

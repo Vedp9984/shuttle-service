@@ -1,14 +1,13 @@
-// models/User.js
+// models/Driver.js
 const mongoose = require('mongoose');
 
-const UserSchema = new mongoose.Schema({
+const DriverSchema = new mongoose.Schema({
   username: { type: String, index: true, unique: true, required: true },
-  email: { type: String, unique: true, required: true },
   passwordHash: { type: String, required: true },
-  firstName: String,
-  lastName: String,
+  name: String,
+  licenseNumber: String,
   phoneNumber: String,
   createdAt: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model('User', UserSchema);
+module.exports = mongoose.model('Driver', DriverSchema);

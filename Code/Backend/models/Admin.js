@@ -1,14 +1,12 @@
-// models/User.js
+// models/Admin.js
 const mongoose = require('mongoose');
 
-const UserSchema = new mongoose.Schema({
+const AdminSchema = new mongoose.Schema({
   username: { type: String, index: true, unique: true, required: true },
-  email: { type: String, unique: true, required: true },
   passwordHash: { type: String, required: true },
   firstName: String,
   lastName: String,
-  phoneNumber: String,
   createdAt: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model('User', UserSchema);
+module.exports = mongoose.model('Admin', AdminSchema);
