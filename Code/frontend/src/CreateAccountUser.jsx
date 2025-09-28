@@ -41,7 +41,6 @@ const CreateAccountUser = () => {
         }
 
         try {
-            // 'username' is no longer sent to the backend
             await axios.post("http://localhost:5000/api/auth/register", {
                 email,
                 password,
