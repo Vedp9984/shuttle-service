@@ -7,7 +7,8 @@ import Homepage from "./Homepage";
 import AdminDashboard from "./AdminDashboard";
 import DriverDashboard from "./DriverDashboard";
 import { getCurrentUser } from "./auth";
-
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 /**
  * PublicRoute: For routes accessible only by logged-out users (e.g., login, register).
  * If a logged-in user tries to access these, they are redirected to their dashboard.
@@ -73,6 +74,17 @@ function App() {
                     element={
                         <RoleProtectedRoute allowedRoles={['Admin']}>
                             <AdminDashboard />
+                            <ToastContainer 
+                            position="top-right"
+                            autoClose={3000}
+                            hideProgressBar={false}
+                            newestOnTop={false}
+                            closeOnClick
+                            rtl={false}
+                            pauseOnFocusLoss
+                            draggable
+                            pauseOnHover
+                        />
                         </RoleProtectedRoute>
                     }
                 />

@@ -1,23 +1,34 @@
+// AdminDashboard.jsx
 import React from 'react';
-import { FaHome, FaSignOutAlt, FaBell, FaPlus, FaPencilAlt, FaTrash, FaChartBar } from 'react-icons/fa';
+import { FaHome, FaSignOutAlt, FaBell, FaPlus, FaPencilAlt, FaTrash, FaChartBar, FaSearch } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser, logout } from './auth'; // Import auth utilities
+
+// Import your modals
+import AddRouteModal from './AddRouteModal';
+import AddBusStopModal from './AddBusStopModal';
+import EditRouteModal from './EditRouteModal';
+import EditBusStopModal from './EditBusStopModal';
+import RemoveRouteModal from './RemoveRouteModal';
+import RemoveBusStopModal from './RemoveBusStopModal';
+// import ViewStatisticsModal from './ViewStatisticsModal';
+import SearchBusStopModal from './SearchBusStopModal';
+import SearchRouteModal from './SearchRouteModal';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const currentUser = getCurrentUser(); // Get the logged-in user's data
 
-  /**
-   * Handles the logout process by clearing the session and redirecting to the login page.
-   */
+  // ✅ State to control which modal is open
+  const [openModal, setOpenModal] = React.useState('');
+
+  // Logout handler
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
-  /**
-   * Navigates to the admin dashboard, which serves as the admin's home page.
-   */
+  // Navigate to admin home
   const handleHome = () => {
     navigate('/admin');
   };
@@ -31,7 +42,6 @@ const AdminDashboard = () => {
             <span style={styles.logoText}>🚌</span>
           </div>
           <div style={styles.userInfo}>
-            {/* Dynamically display the user's email */}
             <h2 style={styles.userName}>Hello, {currentUser ? currentUser.email : 'Admin'}!</h2>
             <p style={styles.userRole}>You are the Admin!</p>
           </div>
@@ -44,14 +54,27 @@ const AdminDashboard = () => {
       {/* Main Content */}
       <main style={styles.mainContent}>
         <div className="buttonGrid">
-          <button className="actionButton"><FaPlus /> Add Route</button>
-          <button className="actionButton"><FaPlus /> Add Bus Stop</button>
-          <button className="actionButton"><FaPencilAlt /> Edit Route</button>
-          <button className="actionButton"><FaPencilAlt /> Edit Bus Stop</button>
-          <button className="actionButton"><FaTrash /> Remove Route</button>
-          <button className="actionButton"><FaTrash /> Remove Bus Stop</button>
-          <button className="actionButton"><FaChartBar /> View Statistics</button>
+          <button className="actionButton" onClick={() => setOpenModal('addRoute')}><FaPlus /> Add Route</button>
+          <button className="actionButton" onClick={() => setOpenModal('addBusStop')}><FaPlus /> Add Bus Stop</button>
+          <button className="actionButton" onClick={() => setOpenModal('editRoute')}><FaPencilAlt /> Edit Route</button>
+          <button className="actionButton" onClick={() => setOpenModal('editBusStop')}><FaPencilAlt /> Edit Bus Stop</button>
+          <button className="actionButton" onClick={() => setOpenModal('removeRoute')}><FaTrash /> Remove Route</button>
+          <button className="actionButton" onClick={() => setOpenModal('removeBusStop')}><FaTrash /> Remove Bus Stop</button>
+          {/* <button className="actionButton" onClick={() => setOpenModal('viewStats')}><FaChartBar /> View Statistics</button> */}
+          <button className="actionButton" onClick={() => setOpenModal('searchRoute')}><FaSearch /> Search Route</button>
+          <button className="actionButton" onClick={() => setOpenModal('searchBusStop')}><FaSearch /> Search Bus Stop</button>
         </div>
+
+        {/* Modals */}
+        <AddRouteModal isOpen={openModal === 'addRoute'} onClose={() => setOpenModal('')} />
+        <AddBusStopModal isOpen={openModal === 'addBusStop'} onClose={() => setOpenModal('')} />
+        <EditRouteModal isOpen={openModal === 'editRoute'} onClose={() => setOpenModal('')} />
+        <EditBusStopModal isOpen={openModal === 'editBusStop'} onClose={() => setOpenModal('')} />
+        <RemoveRouteModal isOpen={openModal === 'removeRoute'} onClose={() => setOpenModal('')} />
+        <RemoveBusStopModal isOpen={openModal === 'removeBusStop'} onClose={() => setOpenModal('')} />
+        {/* <ViewStatisticsModal isOpen={openModal === 'viewStats'} onClose={() => setOpenModal('')} /> */}
+        <SearchRouteModal isOpen={openModal === 'searchRoute'} onClose={() => setOpenModal('')} />
+        <SearchBusStopModal isOpen={openModal === 'searchBusStop'} onClose={() => setOpenModal('')} />
       </main>
 
       {/* Footer */}
@@ -66,7 +89,7 @@ const AdminDashboard = () => {
         </button>
       </footer>
 
-      {/* CSS for responsive layout */}
+      {/* Inline CSS for responsive layout */}
       <style>{`
         .buttonGrid {
           display: grid;

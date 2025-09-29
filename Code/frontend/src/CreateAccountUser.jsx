@@ -6,8 +6,15 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "./App.css";
 
+// Use environment variable for the backend port
+// Assuming the .env file has a variable like VITE_PORT=5000
+const PORT = import.meta.env.VITE_PORT || 5000;
+const API_BASE_URL = `http://localhost:${PORT}`;
+
 const CreateAccountUser = () => {
     const navigate = useNavigate();
+    // Only allow 'User' and 'Driver' registration
+    const allowedUserTypes = ["User", "Driver"];
     const [userType, setUserType] = useState("User");
     const [showPassword, setShowPassword] = useState(false);
     const [agreeToTerms, setAgreeToTerms] = useState(false);
@@ -39,16 +46,25 @@ const CreateAccountUser = () => {
             toast.error("Please provide your license number.");
             return;
         }
+        
+        if (!allowedUserTypes.includes(userType)) {
+             toast.error("Invalid user type selected.");
+             return;
+        }
 
         try {
-            await axios.post("http://localhost:5000/api/auth/register", {
+            // Construct the registration URL using the dynamically derived base URL
+            const registrationUrl = `${API_BASE_URL}/api/auth/register`;
+            
+            await axios.post(registrationUrl, {
                 email,
                 password,
                 firstName,
                 lastName,
                 phoneNumber: contactNo,
                 userType,
-                licenseNumber: userType === 'Driver' ? licenseNumber : undefined,
+                // Only send licenseNumber if userType is 'Driver'
+                licenseNumber: userType === 'Driver' ? licenseNumber : undefined, 
             });
 
             toast.success(`${userType} account created! Redirecting to login...`, {
@@ -57,7 +73,8 @@ const CreateAccountUser = () => {
             });
 
         } catch (err) {
-            toast.error("Registration failed: " + (err.response?.data?.msg || "Server error"));
+            // Improved error handling
+            toast.error("Registration failed: " + (err.response?.data?.msg || "Server error. Check if the backend is running on port " + PORT));
         }
     };
 
@@ -69,9 +86,16 @@ const CreateAccountUser = () => {
                     <h1 className="text-4xl sm:text-5xl font-bold text-[#001E39]">Create an account</h1>
                     <p className="text-[#001E39] mt-2">Join our app today</p>
                 </div>
+                {/* Only display 'User' and 'Driver' buttons */}
                 <div className="flex flex-col sm:flex-row gap-4">
-                    {["User", "Admin", "Driver"].map((type) => (
-                        <button key={type} onClick={() => setUserType(type)} className={`flex-1 py-2 px-4 rounded-lg text-white font-semibold transition-colors ${userType === type ? "bg-[#006767]" : "bg-[#00A3A3]"}`}>
+                    {allowedUserTypes.map((type) => (
+                        <button 
+                            key={type} 
+                            onClick={() => setUserType(type)} 
+                            className={`flex-1 py-2 px-4 rounded-lg text-white font-semibold transition-colors ${
+                                userType === type ? "bg-[#006767]" : "bg-[#00A3A3]"
+                            }`}
+                        >
                             {type}
                         </button>
                     ))}

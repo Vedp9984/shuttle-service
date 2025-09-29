@@ -7,12 +7,17 @@ import "react-toastify/dist/ReactToastify.css";
 import "./App.css";
 import { login as saveSession } from './auth';
 
+// Use environment variable for the backend port
+// Defaults to 5000 if VITE_PORT is not defined
+const PORT = import.meta.env.VITE_PORT || 5000;
+const API_BASE_URL = `http://localhost:${PORT}`;
+
 const Login = () => {
     const navigate = useNavigate();
     const [userType, setUserType] = useState("User");
     const [showPassword, setShowPassword] = useState(false);
     const [formData, setFormData] = useState({
-        email: "", // Changed from userId to email
+        email: "",
         password: "",
     });
 
@@ -27,13 +32,16 @@ const Login = () => {
         }
 
         try {
-            // Send 'email' instead of 'username' to the backend
-            const res = await axios.post("http://localhost:5000/api/auth/login", {
+            // Construct the API URL using the environment variable
+            const loginUrl = `${API_BASE_URL}/api/auth/login`;
+
+            const res = await axios.post(loginUrl, {
                 email: formData.email,
                 password: formData.password,
                 userType,
             });
 
+            // Assuming saveSession is defined elsewhere to handle token/user data persistence
             saveSession(res.data.user);
 
             toast.success(`Welcome back! Login successful. Redirecting...`, {
@@ -41,14 +49,15 @@ const Login = () => {
             });
 
             setTimeout(() => {
-                const role = res.data.user.role;
+                const role = res.data.user.userType; // Use userType from backend response
                 if (role === 'Admin') navigate("/admin");
                 else if (role === 'Driver') navigate("/driver");
                 else navigate("/homepage");
             }, 1500);
 
         } catch (err) {
-            toast.error("Login failed: " + (err.response?.data?.msg || "Server error, please try again."));
+            // Include port number in the error message for easy debugging
+            toast.error("Login failed: " + (err.response?.data?.msg || `Server error. Check if the backend is running on port ${PORT}.`));
         }
     };
 

@@ -1,0 +1,239 @@
+.modal-overlay {
+  position: fixed;
+  top: 0; 
+  left: 0;
+  width: 100%; 
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex; 
+  justify-content: center; 
+  align-items: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.modal-content {
+  background-color: #1e1e1e;
+  color: #f0f0f0;
+  padding: 30px;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 15px rgba(255, 219, 21, 0.3);
+  transform: translateY(-50px);
+  animation: slideIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+.modal-content h2 {
+  color: #FFDB15;
+  font-weight: 700;
+  margin-bottom: 5px;
+  border-bottom: 2px solid #333;
+  padding-bottom: 10px;
+}
+
+.modal-input-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.modal-input {
+  flex: 1;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #444;
+  background-color: #333;
+  color: #fff;
+  width: 100%;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.modal-input:focus {
+  border-color: #FFDB15;
+  outline: none;
+  box-shadow: 0 0 5px rgba(255, 219, 21, 0.5);
+}
+
+.modal-content button {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: transform 0.1s ease, box-shadow 0.2s;
+}
+
+.modal-content button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.modal-button-primary {
+  background-color: #FFDB15;
+  color: #121212;
+}
+
+.modal-button-secondary {
+  background-color: #555;
+  color: #fff;
+}
+
+.modal-button-danger {
+  background-color: #dc3545;
+  color: #fff;
+}
+
+.modal-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* Days selection horizontal */
+.days-container {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 15px;
+}
+
+.day-item {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #444;
+  cursor: pointer;
+  font-size: 0.95rem;
+  text-align: center;
+  user-select: none;
+  transition: all 0.2s ease;
+  background-color: #333;
+  color: #ccc;
+}
+
+.day-item.selected {
+  background-color: #28a745; /* green for default/selected */
+  color: #fff;
+  border-color: #28a745;
+}
+
+.day-item:hover {
+  border-color: #FFDB15;
+}
+
+/* Search Results Styling */
+.search-results {
+  max-height: 300px;
+  overflow-y: auto;
+  margin-top: 10px;
+}
+
+.search-results ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.search-result-item {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #2a2a2a;
+  padding: 10px 15px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  gap: 5px;
+}
+
+.stop-name {
+  font-weight: bold;
+  color: #FFDB15;
+}
+
+.stop-id {
+  color: #ccc;
+  font-size: 0.9em;
+}
+
+.stop-address {
+  flex: 1;
+  color: #aaa;
+}
+
+.status {
+  font-weight: bold;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 0.8em;
+}
+
+.status.active {
+  background-color: #00A3A3;
+  color: white;
+}
+
+.status.inactive {
+  background-color: #c00;
+  color: white;
+}
+
+.no-results {
+  text-align: center;
+  color: #ccc;
+  font-style: italic;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(-50px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 500px) {
+  .days-container {
+    justify-content: center;
+  }
+}
+.modal-content {
+  max-width: 700px; /* increased width */
+}
+
+.origin-destination-container {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap; /* stacks on small screens */
+}
+
+.origin-destination-container > div {
+  flex: 1;
+}
+.modal-content.scrollable-modal {
+  max-height: 90vh; /* restrict height to 90% of viewport */
+  overflow-y: auto; /* scroll internally if content exceeds height */
+  padding-right: 15px; /* prevent scrollbar overlap */
+}
+
+.stops-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
