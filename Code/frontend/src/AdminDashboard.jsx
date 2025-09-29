@@ -1,6 +1,6 @@
 // AdminDashboard.jsx
 import React from 'react';
-import { FaHome, FaSignOutAlt, FaBell, FaPlus, FaPencilAlt, FaTrash, FaChartBar, FaSearch } from 'react-icons/fa';
+import { FaHome, FaSignOutAlt, FaBell, FaPlus, FaPencilAlt, FaTrash, FaChartBar, FaSearch,FaEye } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser, logout } from './auth'; // Import auth utilities
 
@@ -14,11 +14,17 @@ import RemoveBusStopModal from './RemoveBusStopModal';
 // import ViewStatisticsModal from './ViewStatisticsModal';
 import SearchBusStopModal from './SearchBusStopModal';
 import SearchRouteModal from './SearchRouteModal';
+import AddJourneyModal from './AddJourneyModal';
+import ViewJourneyModal from './ViewJourneyModal';
+
+import AddVehicleModal from './AddVehicleModal';
+import RemoveVehicleModal from './RemoveVehicleModal';
+import UpdateVehicleModal from './UpdateVehicleModal';
+import SearchVehicleModal from './SearchVehicleModal';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const currentUser = getCurrentUser(); // Get the logged-in user's data
-
   // ✅ State to control which modal is open
   const [openModal, setOpenModal] = React.useState('');
 
@@ -63,6 +69,15 @@ const AdminDashboard = () => {
           {/* <button className="actionButton" onClick={() => setOpenModal('viewStats')}><FaChartBar /> View Statistics</button> */}
           <button className="actionButton" onClick={() => setOpenModal('searchRoute')}><FaSearch /> Search Route</button>
           <button className="actionButton" onClick={() => setOpenModal('searchBusStop')}><FaSearch /> Search Bus Stop</button>
+          <button className="actionButton" onClick={() => setOpenModal('addJourney')}><FaPlus /> Add Journey</button>
+          <button className="actionButton" onClick={() => setOpenModal('viewJourney')}><FaEye /> View Journey</button>
+
+          {/* New Vehicle Management Buttons */}
+          <button className="actionButton" onClick={() => setOpenModal('addVehicle')}><FaPlus /> Add Vehicle</button>
+          <button className="actionButton" onClick={() => setOpenModal('removeVehicle')}><FaTrash /> Remove Vehicle</button>
+          <button className="actionButton" onClick={() => setOpenModal('updateVehicle')}><FaPencilAlt /> Update Vehicle</button>
+          <button className="actionButton" onClick={() => setOpenModal('searchVehicle')}><FaSearch /> Search Vehicle</button>
+     
         </div>
 
         {/* Modals */}
@@ -75,6 +90,15 @@ const AdminDashboard = () => {
         {/* <ViewStatisticsModal isOpen={openModal === 'viewStats'} onClose={() => setOpenModal('')} /> */}
         <SearchRouteModal isOpen={openModal === 'searchRoute'} onClose={() => setOpenModal('')} />
         <SearchBusStopModal isOpen={openModal === 'searchBusStop'} onClose={() => setOpenModal('')} />
+        <AddJourneyModal isOpen={openModal === 'addJourney'} onClose={() => setOpenModal('')} />
+        <ViewJourneyModal isOpen={openModal === 'viewJourney'} onClose={() => setOpenModal('')} />         
+
+          {/* New Vehicle Management Modals */}
+        <AddVehicleModal isOpen={openModal === 'addVehicle'} onClose={() => setOpenModal('')} />
+        <RemoveVehicleModal isOpen={openModal === 'removeVehicle'} onClose={() => setOpenModal('')} />
+        <UpdateVehicleModal isOpen={openModal === 'updateVehicle'} onClose={() => setOpenModal('')} />
+        <SearchVehicleModal isOpen={openModal === 'searchVehicle'} onClose={() => setOpenModal('')} />
+     
       </main>
 
       {/* Footer */}

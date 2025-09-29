@@ -65,6 +65,26 @@ exports.createRoute = async (req, res) => {
     }
 };
 
+// GET a route ID by code
+exports.getRouteIdByCode = async (req, res) => {
+    try {
+        const { code } = req.params;
+
+        if (!code) {
+            return res.status(400).json({ message: 'Route code is required.' });
+        }
+
+        const route = await Route.findOne({ routeCode: code }).select('_id');
+
+        if (!route) {
+            return res.status(404).json({ message: 'Route not found.' });
+        }
+
+        res.status(200).json({ id: route._id });
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching route ID.', details: error.message });
+    }
+};
 
 
 

@@ -7,6 +7,8 @@ const routeRoutes = require('./routes/routes');
 const busStopRoutes = require('./routes/busstop'); 
 const journeyRoutes = require('./routes/journeys'); // NEW
 const vehicleRoutes = require('./routes/vehicles'); // NEW
+const userRoutes = require('./routes/user');  // NEW
+
 
 const app = express();
 app.use(cors());
@@ -21,6 +23,8 @@ app.use('/api/routes', routeRoutes);
 app.use('/api/busstops', busStopRoutes);
 app.use('/api/journeys', journeyRoutes);   // NEW
 app.use('/api/vehicles', vehicleRoutes);   // NEW
+app.use('/api/user', userRoutes);
+
 
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);

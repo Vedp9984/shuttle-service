@@ -15,10 +15,18 @@ exports.createJourney = async (req, res) => {
 exports.getJourneys = async (req, res) => {
   try {
     const journeys = await Journey.find()
-      .populate('route')
+      .populate({
+        path: 'route',
+        populate: [
+          { path: 'originStop', model: 'BusStop' },
+          { path: 'destinationStop', model: 'BusStop' },
+          { path: 'stops.stop', model: 'BusStop' } // populate intermediate stops
+        ]
+      })
       .populate('vehicle')
       .populate('driver', 'firstName lastName email')
       .populate('currentStop');
+
     res.json(journeys);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -29,10 +37,18 @@ exports.getJourneys = async (req, res) => {
 exports.getJourneyById = async (req, res) => {
   try {
     const journey = await Journey.findById(req.params.id)
-      .populate('route')
+      .populate({
+        path: 'route',
+        populate: [
+          { path: 'originStop', model: 'BusStop' },
+          { path: 'destinationStop', model: 'BusStop' },
+          { path: 'stops.stop', model: 'BusStop' }
+        ]
+      })
       .populate('vehicle')
       .populate('driver', 'firstName lastName email')
       .populate('currentStop');
+
     if (!journey) return res.status(404).json({ message: 'Journey not found' });
     res.json(journey);
   } catch (err) {

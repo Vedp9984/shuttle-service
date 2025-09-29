@@ -237,3 +237,102 @@
   gap: 10px;
 }
 
+.route-fetch-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.route-fetch-row input {
+  flex: 1;
+}
+
+.route-fetch-row button {
+  padding: 5px 10px;
+}
+
+/* Dark Modal Background */
+.modal-content.journey-modal {
+  background-color: #111;
+  color: #fff;
+  max-height: 80vh;
+  overflow-y: auto;
+  width: 85%;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.journey-card.dark-card {
+  background: #222;
+  border-radius: 10px;
+  margin-bottom: 12px;
+  padding: 15px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.5);
+}
+
+.journey-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.journey-actions button {
+  margin-left: 6px;
+  font-weight: bold;
+}
+
+.btn {
+  border: none;
+  border-radius: 6px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+
+.btn-edit {
+  background-color: #007bff;
+  color: #fff;
+}
+
+.btn-delete {
+  background-color: #dc3545;
+  color: #fff;
+}
+
+.btn-details {
+  background-color: #ff8800;
+  color: #fff;
+}
+
+.journey-details.dark-card-details {
+  margin-top: 10px;
+  background: #1a1a1a;
+  padding: 12px;
+  border-radius: 8px;
+  border-left: 4px solid #ff8800;
+}
+
+.stops-flow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 5px;
+}
+
+.stops-flow .stop {
+  background: #007bff;
+  color: #fff;
+  padding: 3px 8px;
+  border-radius: 4px;
+  margin-right: 4px;
+  font-size: 0.9rem;
+}
+
+.stops-flow .arrow {
+  margin: 0 6px;
+  font-weight: bold;
+  color: #fff;
+}
+
+.id-text {
+  color: #ffcc00;
+}

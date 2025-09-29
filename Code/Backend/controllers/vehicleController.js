@@ -32,6 +32,23 @@ exports.getVehicleById = async (req, res) => {
   }
 };
 
+//get vehicle by plate number
+exports.getVehicleByPlateNumber = async (req, res) => {
+  try {
+    const { plateNumber } = req.query;
+    if (!plateNumber) {
+      return res.status(400).json({ message: 'Plate number is required' });
+    }
+    const vehicle = await Vehicle.findOne({ plateNumber: plateNumber });
+    if (!vehicle) {
+      return res.status(404).json({ message: 'Vehicle not found' });
+    }
+    res.json(vehicle);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 // 📌 Update vehicle
 exports.updateVehicle = async (req, res) => {
   try {
