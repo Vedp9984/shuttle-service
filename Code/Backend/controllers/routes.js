@@ -28,8 +28,6 @@ exports.createRoute = async (req, res) => {
             routeCode,
             routeName,
             description,
-            basePrice,
-            vehicleCapacity,
             daysAvailable,
             defaultDepartureTime,
             originDepartureTime,
@@ -55,8 +53,6 @@ exports.createRoute = async (req, res) => {
             destinationStop,
             destinationArrivalTime,
             stops,
-            basePrice,
-            vehicleCapacity,
             daysAvailable,
             defaultDepartureTime
         });
@@ -112,7 +108,7 @@ exports.updateRoute = async (req, res) => {
     const {
       routeCode, routeName, description, isActive,
       originStop, originDepartureTime, destinationStop, destinationArrivalTime,
-      stops, basePrice, vehicleCapacity, daysAvailable, defaultDepartureTime
+      stops, daysAvailable, defaultDepartureTime
     } = req.body;
 
     // Validate stops exist
@@ -128,8 +124,6 @@ exports.updateRoute = async (req, res) => {
     route.destinationStop = destinationStop;
     route.destinationArrivalTime = destinationArrivalTime;
     route.stops = stops; // full array
-    route.basePrice = basePrice;
-    route.vehicleCapacity = vehicleCapacity;
     route.daysAvailable = daysAvailable;
     route.defaultDepartureTime = defaultDepartureTime;
 

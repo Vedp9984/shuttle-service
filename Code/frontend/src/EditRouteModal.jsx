@@ -60,8 +60,6 @@ const EditRouteModal = ({ isOpen, onClose }) => {
         destinationStop: data.destinationStop?._id || data.destinationStop || '',
         destinationArrivalTime: data.destinationArrivalTime || '',
         stops,
-        basePrice: data.basePrice || '',
-        vehicleCapacity: data.vehicleCapacity || '',
         daysAvailable: data.daysAvailable || [],
         defaultDepartureTime: data.defaultDepartureTime || '',
         isActive: data.isActive ?? true
@@ -120,8 +118,6 @@ const EditRouteModal = ({ isOpen, onClose }) => {
       arrivalTime: s.arrivalTime,
       departureTime: s.departureTime
     })),
-    basePrice: data.basePrice,
-    vehicleCapacity: data.vehicleCapacity,
     daysAvailable: data.daysAvailable,
     defaultDepartureTime: data.defaultDepartureTime
   });
@@ -209,11 +205,6 @@ const EditRouteModal = ({ isOpen, onClose }) => {
               ))}
             </div>
             <button className="modal-button-secondary" onClick={addStop}>Add Intermediate Stop</button>
-
-            <div className="modal-input-container">
-              <input className="modal-input" name="basePrice" type="number" placeholder="Base Price" value={formData.basePrice} onChange={handleChange} />
-              <input className="modal-input" name="vehicleCapacity" type="number" placeholder="Vehicle Capacity" value={formData.vehicleCapacity} onChange={handleChange} />
-            </div>
 
             <h4>Days Available</h4>
             <div className="days-container">

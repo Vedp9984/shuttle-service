@@ -16,8 +16,6 @@ const AddRouteModal = ({ isOpen, onClose }) => {
     destinationStop: '',
     destinationArrivalTime: '',
     stops: [], // intermediate stops [{ stop: '', arrivalTime: '', departureTime: '' }]
-    basePrice: '',
-    vehicleCapacity: '',
     daysAvailable: [],
     defaultDepartureTime: ''
   });
@@ -68,9 +66,9 @@ const AddRouteModal = ({ isOpen, onClose }) => {
   };
 
   const handleSubmit = async () => {
-    const { routeCode, routeName, originStop, destinationStop, basePrice, vehicleCapacity } = formData;
-    if (!routeCode || !routeName || !originStop || !destinationStop || !basePrice || !vehicleCapacity) {
-      toast.error('Please fill all required fields: Route Code, Name, Origin, Destination, Price, Capacity');
+    const { routeCode, routeName, originStop, destinationStop } = formData;
+    if (!routeCode || !routeName || !originStop || !destinationStop) {
+      toast.error('Please fill all required fields: Route Code, Name, Origin, Destination');
       return;
     }
 
@@ -87,8 +85,6 @@ const AddRouteModal = ({ isOpen, onClose }) => {
         destinationStop: '',
         destinationArrivalTime: '',
         stops: [],
-        basePrice: '',
-        vehicleCapacity: '',
         daysAvailable: [],
         defaultDepartureTime: ''
       });
@@ -152,10 +148,6 @@ const AddRouteModal = ({ isOpen, onClose }) => {
         </div>
         <button className="modal-button-secondary" onClick={addStop}>Add Intermediate Stop</button>
 
-        <div className="modal-input-container">
-          <input className="modal-input" name="basePrice" type="number" placeholder="Base Price" value={formData.basePrice} onChange={handleChange} />
-          <input className="modal-input" name="vehicleCapacity" type="number" placeholder="Vehicle Capacity" value={formData.vehicleCapacity} onChange={handleChange} />
-        </div>
 
         <h4>Days Available</h4>
         <div className="days-container">

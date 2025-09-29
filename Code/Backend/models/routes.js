@@ -48,17 +48,7 @@ const routeSchema = new Schema({
     departureTime: { type: String }  // optional, 'HH:MM'
   }],
 
-  // Financial and Operational Details
-  basePrice: { 
-    type: Number, 
-    required: true, 
-    min: 0 
-  },
-  vehicleCapacity: { 
-    type: Number, 
-    required: true, 
-    min: 1 
-  },
+
 
   // Scheduling Information
   daysAvailable: { 
