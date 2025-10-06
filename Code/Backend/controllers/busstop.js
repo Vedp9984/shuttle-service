@@ -1,10 +1,7 @@
 const mongoose = require('mongoose');
 const BusStop = require('../models/busstop');
 
-/**
- * [C] CREATE: Add a new bus stop
- * POST /api/busstops
- */
+
 exports.createBusStop = async (req, res) => {
     try {
         const { stopName, latitude, longitude } = req.body;
