@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { logout, getCurrentUser } from './auth';
 import { useNavigate } from 'react-router-dom';
-import { FaHome, FaSignOutAlt, FaSearch, FaMapMarkerAlt, FaClock, FaBus, FaRoute, FaSync, FaExclamationTriangle } from 'react-icons/fa';
+import { FaHome, FaSignOutAlt, FaSearch, FaMapMarkerAlt, FaClock, FaBus, FaRoute, FaSync, FaExclamationTriangle, FaArrowRight, FaCreditCard, FaCalendarAlt } from 'react-icons/fa';
 
 const Homepage = () => {
     const navigate = useNavigate();
@@ -14,9 +14,23 @@ const Homepage = () => {
     const [routesError, setRoutesError] = useState(null);
     const [journeysError, setJourneysError] = useState(null);
 
+    // New state for journey planning functionality
+    const [allBusStops, setAllBusStops] = useState([]);
+    const [originStop, setOriginStop] = useState('');
+    const [destinationStop, setDestinationStop] = useState('');
+    const [selectedDate, setSelectedDate] = useState(
+        new Date().toISOString().split('T')[0]
+    );
+    const [availableJourneys, setAvailableJourneys] = useState([]);
+    const [journeySearchLoading, setJourneySearchLoading] = useState(false);
+    const [journeySearchError, setJourneySearchError] = useState(null);
+    const [selectedJourney, setSelectedJourney] = useState(null);
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
+
     useEffect(() => {
         fetchRoutes();
         fetchUpcomingJourneys();
+        fetchBusStops(); // Add this new API call
     }, []);
 
     const fetchRoutes = async () => {
@@ -164,6 +178,182 @@ const Homepage = () => {
         }
     };
 
+    const fetchBusStops = async () => {
+        try {
+            const response = await fetch('/api/busstops');
+            
+            if (!response.ok) {
+                throw new Error(`Error: ${response.status} - ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            console.log('Bus stops:', data);
+            setAllBusStops(data);
+        } catch (error) {
+            console.error('Error fetching bus stops:', error);
+        }
+    };
+
+    const searchJourneys = async () => {
+        if (!originStop || !destinationStop) {
+            alert('Please select both origin and destination stops');
+            return;
+        }
+        
+        setJourneySearchLoading(true);
+        setJourneySearchError(null);
+        setAvailableJourneys([]);
+        
+        try {
+            const response = await fetch(
+                `/api/journeys/search?origin=${originStop}&destination=${destinationStop}&date=${selectedDate}`
+            );
+            
+            if (!response.ok) {
+                throw new Error(`Error: ${response.status} - ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            setAvailableJourneys(data);
+        } catch (error) {
+            console.error('Error searching journeys:', error);
+            setJourneySearchError(error.message || 'Failed to search for journeys');
+        } finally {
+            setJourneySearchLoading(false);
+        }
+    };
+
+    const bookJourney = (journey) => {
+        setSelectedJourney(journey);
+        setShowPaymentModal(true);
+    };
+
+    const processPayment = async (paymentDetails) => {
+        try {
+            const response = await fetch('/api/bookings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    journeyId: selectedJourney._id,
+                    userId: currentUser?.id,
+                    paymentDetails,
+                }),
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Error: ${response.status} - ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            alert('Journey booked successfully!');
+            setShowPaymentModal(false);
+            setSelectedJourney(null);
+            
+            fetchUpcomingJourneys();
+        } catch (error) {
+            console.error('Error booking journey:', error);
+            alert('Failed to book journey: ' + error.message);
+        }
+    };
+
+    const PaymentModal = () => {
+        const [cardNumber, setCardNumber] = useState('');
+        const [expiryDate, setExpiryDate] = useState('');
+        const [cvv, setCvv] = useState('');
+        const [name, setName] = useState('');
+        
+        const handleSubmit = (e) => {
+            e.preventDefault();
+            processPayment({
+                cardNumber,
+                expiryDate,
+                cvv,
+                name
+            });
+        };
+        
+        if (!showPaymentModal) return null;
+        
+        return (
+            <div style={styles.modalOverlay}>
+                <div style={styles.modal}>
+                    <h2 style={styles.modalTitle}>Complete Payment</h2>
+                    <p style={styles.journeyDetails}>
+                        Journey from {selectedJourney?.origin} to {selectedJourney?.destination}
+                        <br />
+                        Date: {new Date(selectedJourney?.departureTime).toLocaleDateString()}
+                        <br />
+                        Time: {new Date(selectedJourney?.departureTime).toLocaleTimeString()}
+                        <br />
+                        Price: ₹120
+                    </p>
+                    
+                    <form onSubmit={handleSubmit} style={styles.paymentForm}>
+                        <div style={styles.formGroup}>
+                            <label style={styles.label}>Name on Card</label>
+                            <input 
+                                type="text" 
+                                value={name} 
+                                onChange={(e) => setName(e.target.value)} 
+                                required 
+                                style={styles.input} 
+                            />
+                        </div>
+                        
+                        <div style={styles.formGroup}>
+                            <label style={styles.label}>Card Number</label>
+                            <input 
+                                type="text" 
+                                value={cardNumber} 
+                                onChange={(e) => setCardNumber(e.target.value)} 
+                                placeholder="XXXX XXXX XXXX XXXX" 
+                                required 
+                                style={styles.input} 
+                            />
+                        </div>
+                        
+                        <div style={styles.formRow}>
+                            <div style={styles.formGroup}>
+                                <label style={styles.label}>Expiry Date</label>
+                                <input 
+                                    type="text" 
+                                    value={expiryDate} 
+                                    onChange={(e) => setExpiryDate(e.target.value)} 
+                                    placeholder="MM/YY" 
+                                    required 
+                                    style={styles.input} 
+                                />
+                            </div>
+                            
+                            <div style={styles.formGroup}>
+                                <label style={styles.label}>CVV</label>
+                                <input 
+                                    type="text" 
+                                    value={cvv} 
+                                    onChange={(e) => setCvv(e.target.value)} 
+                                    placeholder="XXX" 
+                                    required 
+                                    style={styles.input} 
+                                />
+                            </div>
+                        </div>
+                        
+                        <div style={styles.formActions}>
+                            <button type="button" onClick={() => setShowPaymentModal(false)} style={styles.cancelButton}>
+                                Cancel
+                            </button>
+                            <button type="submit" style={styles.payButton}>
+                                Pay ₹120
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        );
+    };
+
     const handleLogout = () => {
         logout();
         navigate('/login');
@@ -222,8 +412,6 @@ const Homepage = () => {
         fetchUpcomingJourneys();
     };
 
- 
-
     return (
         <div style={styles.dashboard}>
             <header style={styles.header}>
@@ -249,9 +437,128 @@ const Homepage = () => {
                 </div>
             </header>
 
-
-
             <main style={styles.mainContent}>
+                {/* New Journey Planning Section */}
+                <section style={styles.bookingSection}>
+                    <h3 style={styles.sectionTitle}>
+                        <FaBus style={styles.sectionIcon} />
+                        Plan Your Journey
+                    </h3>
+                    
+                    <div style={styles.bookingForm}>
+                        <div style={styles.formRow}>
+                            <div style={styles.formGroup}>
+                                <label style={styles.label}>From</label>
+                                <select 
+                                    value={originStop}
+                                    onChange={(e) => setOriginStop(e.target.value)}
+                                    style={styles.select}
+                                >
+                                    <option value="">Select Origin</option>
+                                    {allBusStops.map(stop => (
+                                        <option key={stop._id} value={stop._id}>
+                                            {stop.name} - {stop.location}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            
+                            <div style={styles.iconContainer}>
+                                <FaArrowRight style={styles.arrowIcon} />
+                            </div>
+                            
+                            <div style={styles.formGroup}>
+                                <label style={styles.label}>To</label>
+                                <select 
+                                    value={destinationStop}
+                                    onChange={(e) => setDestinationStop(e.target.value)}
+                                    style={styles.select}
+                                >
+                                    <option value="">Select Destination</option>
+                                    {allBusStops.map(stop => (
+                                        <option key={stop._id} value={stop._id}>
+                                            {stop.name} - {stop.location}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            
+                            <div style={styles.formGroup}>
+                                <label style={styles.label}>Date</label>
+                                <div style={styles.dateInputContainer}>
+                                    <FaCalendarAlt style={styles.dateIcon} />
+                                    <input 
+                                        type="date" 
+                                        value={selectedDate}
+                                        onChange={(e) => setSelectedDate(e.target.value)}
+                                        style={styles.dateInput}
+                                        min={new Date().toISOString().split('T')[0]}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button onClick={searchJourneys} style={styles.searchButton}>
+                            Find Journeys
+                        </button>
+                    </div>
+                    
+                    {/* Journey Search Results */}
+                    {journeySearchLoading ? (
+                        <div style={styles.loadingContainer}>
+                            <div style={styles.loadingSpinner}></div>
+                            <p style={styles.loadingText}>Searching for journeys...</p>
+                        </div>
+                    ) : journeySearchError ? (
+                        <div style={styles.errorMessage}>
+                            <FaExclamationTriangle style={styles.errorIcon} />
+                            <p>{journeySearchError}</p>
+                            <button onClick={searchJourneys} style={styles.retryButton}>
+                                Retry
+                            </button>
+                        </div>
+                    ) : availableJourneys.length > 0 ? (
+                        <div style={styles.journeyResultsContainer}>
+                            <h4 style={styles.resultsTitle}>Available Journeys</h4>
+                            {availableJourneys.map((journey, index) => (
+                                <div key={journey._id || index} style={styles.journeyResult}>
+                                    <div style={styles.journeyInfo}>
+                                        <div style={styles.journeyTiming}>
+                                            <div style={styles.searchResultTime}>
+                                                {new Date(journey.departureTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                            </div>
+                                            <div style={styles.journeyDuration}>
+                                                {journey.duration || '45m'}
+                                            </div>
+                                        </div>
+                                        
+                                        <div style={styles.journeyRoute}>
+                                            <div>{journey.route?.routeName || 'Direct Route'}</div>
+                                            <div style={styles.routeCode}>{journey.route?.routeCode || 'DR1'}</div>
+                                        </div>
+                                        
+                                        <div style={styles.journeyPrice}>
+                                            ₹{journey.price || '120'}
+                                        </div>
+                                    </div>
+                                    
+                                    <button 
+                                        onClick={() => bookJourney(journey)} 
+                                        style={styles.bookButton}
+                                    >
+                                        <FaCreditCard style={{marginRight: '5px'}} /> Book Now
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    ) : originStop && destinationStop ? (
+                        <div style={styles.noResults}>
+                            <FaBus style={styles.noResultsIcon} />
+                            <p>No journeys found between the selected stops on this date.</p>
+                        </div>
+                    ) : null}
+                </section>
+
                 <section style={styles.searchSection}>
                     <h3 style={styles.sectionTitle}>
                         <FaSearch style={styles.sectionIcon} />
@@ -409,90 +716,93 @@ const Homepage = () => {
                     )}
                 </section>
             </main>
+
+            <footer style={styles.bottomNav}>
+                <button style={styles.navButton} onClick={() => navigate('/homepage')} title="Home">
+                    <FaHome style={styles.navIcon} />
+                    <span>Home</span>
+                </button>
+                <button style={styles.navButton} onClick={handleLogout} title="Logout">
+                    <FaSignOutAlt style={styles.navIcon} />
+                    <span>Logout</span>
+                </button>
+            </footer>
+            
+            <PaymentModal />
         </div>
     );
 };
 
 const styles = {
     dashboard: {
+        backgroundColor: '#121212',
+        color: 'white',
+        fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
         minHeight: '100vh',
-        backgroundColor: '#f8f9fa',
-        fontFamily: 'Arial, sans-serif',
+        margin: 0,
+        display: 'flex',
+        flexDirection: 'column',
     },
     header: {
-        backgroundColor: '#fff',
-        padding: '1rem 2rem',
-        borderBottom: '2px solid #e9ecef',
+        padding: '20px',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
     },
     headerLeft: {
         display: 'flex',
         alignItems: 'center',
-        gap: '1rem',
+        gap: '15px',
     },
     logoContainer: {
-        backgroundColor: '#007bff',
+        backgroundColor: '#333',
         borderRadius: '50%',
-        padding: '0.5rem',
+        padding: '10px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
     },
     logoText: {
         fontSize: '1.5rem',
-        color: 'white',
     },
     userInfo: {
         margin: 0,
     },
     userName: {
         margin: 0,
+        fontWeight: 'bold',
         fontSize: '1.25rem',
-        color: '#333',
+        color: '#FFDB15',
     },
     userRole: {
         margin: 0,
         fontSize: '0.875rem',
-        color: '#666',
+        color: '#ccc',
     },
     headerRight: {
         display: 'flex',
-        gap: '0.5rem',
+        gap: '10px',
     },
     iconButton: {
-        backgroundColor: 'transparent',
-        border: '1px solid #ddd',
+        backgroundColor: '#333',
+        border: 'none',
         borderRadius: '50%',
-        padding: '0.75rem',
+        padding: '10px',
         cursor: 'pointer',
         fontSize: '1rem',
-        color: '#666',
-        transition: 'all 0.2s',
+        color: 'white',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: '44px',
-        height: '44px',
-    },
-    debugButton: {
-        position: 'fixed',
-        bottom: '20px',
-        right: '20px',
-        backgroundColor: '#dc3545',
-        color: 'white',
-        border: 'none',
-        padding: '8px 16px',
-        borderRadius: '4px',
-        cursor: 'pointer',
-        zIndex: 1000
+        width: '40px',
+        height: '40px',
     },
     mainContent: {
-        padding: '2rem',
+        flexGrow: 1,
+        padding: '20px',
         maxWidth: '1200px',
         margin: '0 auto',
+        width: '100%',
     },
     searchSection: {
         marginBottom: '2rem',
@@ -500,62 +810,64 @@ const styles = {
     sectionTitle: {
         fontSize: '1.5rem',
         marginBottom: '1rem',
-        color: '#333',
+        color: 'white',
         display: 'flex',
         alignItems: 'center',
         gap: '0.5rem',
     },
     sectionIcon: {
-        color: '#007bff',
+        color: '#FFDB15',
     },
     searchContainer: {
         display: 'flex',
-        gap: '0.5rem',
+        gap: '10px',
         maxWidth: '600px',
     },
     searchInput: {
         flex: 1,
-        padding: '0.75rem',
-        border: '1px solid #ddd',
-        borderRadius: '8px',
-        fontSize: '1rem',
-    },
-    searchButton: {
-        backgroundColor: '#007bff',
-        color: 'white',
+        padding: '12px',
+        backgroundColor: '#333',
         border: 'none',
         borderRadius: '8px',
-        padding: '0.75rem 1rem',
+        fontSize: '1rem',
+        color: 'white',
+    },
+    searchButton: {
+        backgroundColor: '#FFDB15',
+        color: 'black',
+        border: 'none',
+        borderRadius: '8px',
+        padding: '0 20px',
         cursor: 'pointer',
         fontSize: '1rem',
+        fontWeight: 'bold',
     },
     statsSection: {
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-        gap: '1rem',
+        gap: '20px',
         marginBottom: '2rem',
     },
     statCard: {
-        backgroundColor: 'white',
-        padding: '1.5rem',
+        backgroundColor: '#333',
+        padding: '20px',
         borderRadius: '8px',
         display: 'flex',
         alignItems: 'center',
-        gap: '1rem',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+        gap: '15px',
     },
     statIcon: {
         fontSize: '2rem',
-        color: '#007bff',
+        color: '#FFDB15',
     },
     statNumber: {
         fontSize: '1.5rem',
         margin: 0,
-        color: '#333',
+        color: 'white',
     },
     statLabel: {
         margin: 0,
-        color: '#666',
+        color: '#ccc',
         fontSize: '0.875rem',
     },
     routesSection: {
@@ -571,19 +883,19 @@ const styles = {
     loadingSpinner: {
         width: '40px',
         height: '40px',
-        border: '4px solid rgba(0, 123, 255, 0.2)',
-        borderTop: '4px solid #007bff',
+        border: '4px solid rgba(255, 219, 21, 0.2)',
+        borderTop: '4px solid #FFDB15',
         borderRadius: '50%',
         animation: 'spin 1s linear infinite',
     },
     loadingText: {
         textAlign: 'center',
-        padding: '2rem',
-        color: '#666',
+        padding: '1rem',
+        color: '#ccc',
     },
     errorMessage: {
-        backgroundColor: '#fff3f3',
-        border: '1px solid #ffcdd2',
+        backgroundColor: '#442222',
+        border: '1px solid #663333',
         borderRadius: '8px',
         padding: '1.5rem',
         margin: '1rem 0',
@@ -592,105 +904,106 @@ const styles = {
         alignItems: 'center',
         justifyContent: 'center',
         textAlign: 'center',
-        color: '#d32f2f',
+        color: '#ff6666',
     },
     errorIcon: {
         fontSize: '2rem',
         marginBottom: '1rem',
+        color: '#ff6666',
     },
     retryButton: {
-        backgroundColor: '#007bff',
-        color: 'white',
+        backgroundColor: '#FFDB15',
+        color: 'black',
         border: 'none',
         borderRadius: '8px',
-        padding: '0.5rem 1rem',
+        padding: '8px 16px',
         cursor: 'pointer',
         marginTop: '1rem',
         fontSize: '0.875rem',
+        fontWeight: 'bold',
     },
     routesGrid: {
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-        gap: '1rem',
+        gap: '20px',
     },
     routeCard: {
-        backgroundColor: 'white',
-        padding: '1.5rem',
+        backgroundColor: '#333',
+        padding: '20px',
         borderRadius: '8px',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
         transition: 'transform 0.2s',
     },
     routeHeader: {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: '1rem',
+        marginBottom: '15px',
     },
     routeName: {
         margin: 0,
-        color: '#333',
+        color: 'white',
         fontSize: '1.1rem',
     },
     routeCode: {
-        backgroundColor: '#007bff',
-        color: 'white',
-        padding: '0.25rem 0.5rem',
+        backgroundColor: '#FFDB15',
+        color: 'black',
+        padding: '4px 8px',
         borderRadius: '4px',
         fontSize: '0.875rem',
+        fontWeight: 'bold',
     },
     routeDetails: {
         display: 'flex',
         flexDirection: 'column',
-        gap: '0.5rem',
+        gap: '10px',
     },
     routeStop: {
         display: 'flex',
         alignItems: 'center',
-        gap: '0.5rem',
-        color: '#666',
+        gap: '8px',
+        color: '#ccc',
         fontSize: '0.875rem',
     },
     stopIcon: {
-        color: '#28a745',
+        color: '#FFDB15',
     },
     stopCount: {
         fontSize: '0.75rem',
         color: '#999',
-        marginTop: '0.5rem',
+        marginTop: '10px',
     },
     noResults: {
         textAlign: 'center',
         padding: '3rem',
-        color: '#666',
+        color: '#ccc',
     },
     noResultsIcon: {
         fontSize: '3rem',
-        color: '#ddd',
+        color: '#666',
         marginBottom: '1rem',
     },
     journeysSection: {
         marginBottom: '2rem',
     },
     journeysList: {
-        backgroundColor: 'white',
+        backgroundColor: '#333',
         borderRadius: '8px',
         overflow: 'hidden',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
     },
     journeyCard: {
-        padding: '1rem',
-        borderBottom: '1px solid #eee',
+        padding: '15px',
+        borderBottom: '1px solid #444',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
     },
     journeyTime: {
         flex: 1,
-        color: '#333',
+        color: 'white',
     },
     journeyRoute: {
         flex: 2,
-        color: '#666',
+        color: '#ccc',
         textAlign: 'center',
     },
     journeyStatus: {
@@ -698,24 +1011,240 @@ const styles = {
         textAlign: 'right',
     },
     statusBadge: {
-        padding: '0.25rem 0.5rem',
+        padding: '4px 8px',
         borderRadius: '12px',
         fontSize: '0.75rem',
         color: 'white',
         textTransform: 'capitalize',
     },
     inactiveRoute: {
-        color: '#dc3545',
+        color: '#ff6666',
         fontSize: '0.875rem',
-        marginTop: '0.5rem',
+        marginTop: '10px',
     },
     journeyDate: {
         fontSize: '0.75rem',
-        color: '#666',
+        color: '#999',
     },
     journeyCode: {
         fontSize: '0.75rem',
-        color: '#666',
+        color: '#999',
+    },
+    bottomNav: {
+        backgroundColor: '#00A3A3',
+        display: 'flex',
+        justifyContent: 'space-around',
+        padding: '10px 0',
+        borderTopLeftRadius: '25px',
+        borderTopRightRadius: '25px',
+    },
+    navButton: {
+        background: 'none',
+        border: 'none',
+        color: 'white',
+        cursor: 'pointer',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        fontSize: '0.8em',
+        gap: '4px',
+    },
+    navIcon: {
+        fontSize: '1.8em',
+    },
+    bookingSection: {
+        backgroundColor: '#222',
+        padding: '20px',
+        borderRadius: '8px',
+        marginBottom: '2rem',
+    },
+    bookingForm: {
+        backgroundColor: '#333',
+        padding: '20px',
+        borderRadius: '8px',
+        marginBottom: '20px',
+    },
+    formRow: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: '15px',
+        alignItems: 'flex-end',
+        marginBottom: '15px',
+    },
+    formGroup: {
+        flex: '1 1 200px',
+        display: 'flex',
+        flexDirection: 'column',
+    },
+    label: {
+        color: '#ccc',
+        marginBottom: '8px',
+        fontSize: '0.9rem',
+    },
+    select: {
+        backgroundColor: '#444',
+        border: 'none',
+        color: 'white',
+        padding: '12px',
+        borderRadius: '8px',
+        fontSize: '1rem',
+        appearance: 'none',
+        backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")',
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'right 12px top 50%',
+        backgroundSize: '12px auto',
+    },
+    iconContainer: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '0 10px',
+        marginBottom: '14px',
+    },
+    arrowIcon: {
+        color: '#FFDB15',
+        fontSize: '1.2rem',
+    },
+    dateInputContainer: {
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center',
+    },
+    dateInput: {
+        backgroundColor: '#444',
+        border: 'none',
+        color: 'white',
+        padding: '12px',
+        borderRadius: '8px',
+        fontSize: '1rem',
+        width: '100%',
+        paddingLeft: '35px',
+    },
+    dateIcon: {
+        position: 'absolute',
+        left: '12px',
+        color: '#FFDB15',
+        fontSize: '1rem',
+    },
+    journeyResultsContainer: {
+        backgroundColor: '#333',
+        borderRadius: '8px',
+        overflow: 'hidden',
+    },
+    resultsTitle: {
+        color: '#FFDB15',
+        padding: '15px',
+        margin: 0,
+        borderBottom: '1px solid #444',
+    },
+    journeyResult: {
+        padding: '15px',
+        borderBottom: '1px solid #444',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    journeyInfo: {
+        display: 'flex',
+        gap: '20px',
+        alignItems: 'center',
+        flex: 1,
+    },
+    journeyTiming: {
+        display: 'flex',
+        flexDirection: 'column',
+    },
+    searchResultTime: {  // Renamed from journeyTime to searchResultTime
+        fontSize: '1.2rem',
+        color: 'white',
+        fontWeight: 'bold',
+    },
+    journeyDuration: {
+        fontSize: '0.8rem',
+        color: '#999',
+    },
+    journeyPrice: {
+        color: '#FFDB15',
+        fontWeight: 'bold',
+        fontSize: '1.1rem',
+    },
+    bookButton: {
+        backgroundColor: '#00A3A3',
+        color: 'white',
+        border: 'none',
+        borderRadius: '8px',
+        padding: '10px 15px',
+        fontWeight: 'bold',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+    },
+    modalOverlay: {
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 1000,
+    },
+    modal: {
+        backgroundColor: '#333',
+        borderRadius: '8px',
+        padding: '20px',
+        width: '90%',
+        maxWidth: '500px',
+    },
+    modalTitle: {
+        color: '#FFDB15',
+        marginTop: 0,
+    },
+    journeyDetails: {
+        color: '#ccc',
+        marginBottom: '20px',
+        padding: '15px',
+        backgroundColor: '#444',
+        borderRadius: '8px',
+    },
+    paymentForm: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '15px',
+    },
+    input: {
+        backgroundColor: '#444',
+        border: 'none',
+        color: 'white',
+        padding: '12px',
+        borderRadius: '8px',
+        fontSize: '1rem',
+        width: '100%',
+    },
+    formActions: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        marginTop: '20px',
+    },
+    cancelButton: {
+        backgroundColor: '#555',
+        color: 'white',
+        border: 'none',
+        borderRadius: '8px',
+        padding: '12px 24px',
+        fontWeight: 'bold',
+        cursor: 'pointer',
+    },
+    payButton: {
+        backgroundColor: '#FFDB15',
+        color: 'black',
+        border: 'none',
+        borderRadius: '8px',
+        padding: '12px 24px',
+        fontWeight: 'bold',
+        cursor: 'pointer',
     },
     '@keyframes spin': {
         '0%': { transform: 'rotate(0deg)' },

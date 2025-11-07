@@ -91,23 +91,31 @@ exports.getRouteIdByCode = async (req, res) => {
 // GET a single route by ID
 exports.getRouteById = async (req, res) => {
     try {
-        const { id } = req.params;
-        if (!mongoose.Types.ObjectId.isValid(id)) {
-            return res.status(400).json({ message: 'Invalid Route ID.' });
-        }
-
-        const route = await Route.findById(id)
-            .populate('originStop')
-            .populate('destinationStop')
-            .populate('stops.stop');
-
+        const route = await Route.findById(req.params.id)
+            .populate({
+                path: 'originStop',
+                model: 'BusStop',
+                select: 'name location description'
+            })
+            .populate({
+                path: 'destinationStop', 
+                model: 'BusStop',
+                select: 'name location description'
+            })
+            .populate({
+                path: 'stops.stop',
+                model: 'BusStop',
+                select: 'name location description'
+            });
+        
         if (!route) {
-            return res.status(404).json({ message: 'Route not found.' });
+            return res.status(404).json({ message: 'Route not found' });
         }
-
-        res.status(200).json(route);
-    } catch (error) {
-        res.status(500).json({ message: 'Error fetching route.', details: error.message });
+        
+        res.json(route);
+    } catch (err) {
+        console.error('Error in getRouteById:', err);
+        res.status(500).json({ message: err.message });
     }
 };
 
@@ -185,31 +193,51 @@ exports.deleteRoute = async (req, res) => {
  */
 exports.searchRoutes = async (req, res) => {
     try {
-        const { search } = req.query;
-        let filter = {};
-
-        if (search) {
-            const searchRegex = new RegExp(search, 'i'); // case-insensitive
-
-            const orConditions = [
-                { routeName: searchRegex }
-            ];
-
-            if (mongoose.Types.ObjectId.isValid(search)) {
-                orConditions.push({ _id: search });
-            }
-
-            filter = { $or: orConditions };
+        let query = {};
+        
+        // Handle search parameter if provided
+        if (req.query.search) {
+            const searchTerm = req.query.search;
+            query = {
+                $or: [
+                    { routeName: { $regex: searchTerm, $options: 'i' } },
+                    { routeCode: { $regex: searchTerm, $options: 'i' } },
+                    { description: { $regex: searchTerm, $options: 'i' } }
+                ]
+            };
         }
-
-        const routes = await Route.find(filter)
-            .populate('originStop')
-            .populate('destinationStop')
-            .populate('stops.stop')
-            .sort({ createdAt: -1 });
-
-        res.status(200).json(routes);
-    } catch (error) {
-        res.status(500).json({ message: 'Error searching routes.', details: error.message });
+        
+        // Fix the population to ensure we get the full documents
+        const routes = await Route.find(query)
+            .populate({
+                path: 'originStop',
+                model: 'BusStop',
+                select: 'name location description'
+            })
+            .populate({
+                path: 'destinationStop',
+                model: 'BusStop',
+                select: 'name location description'
+            })
+            .populate({
+                path: 'stops.stop',
+                model: 'BusStop',
+                select: 'name location description'
+            });
+        
+        // Debug logging to see if population worked
+        if (routes.length > 0) {
+            console.log('First route details:');
+            console.log('Route name:', routes[0].routeName);
+            console.log('Origin stop:', routes[0].originStop);
+            console.log('Destination stop:', routes[0].destinationStop);
+        } else {
+            console.log('No routes found');
+        }
+        
+        res.json(routes);
+    } catch (err) {
+        console.error('Error in searchRoutes:', err);
+        res.status(500).json({ message: err.message });
     }
 };
