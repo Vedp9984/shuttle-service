@@ -70,3 +70,29 @@ exports.deleteVehicle = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+
+exports.searchVehicles = async (req, res) => {
+  try {
+    const { value } = req.query;
+
+    if (!value) {
+      return res.status(400).json({ message: 'Search value is required' });
+    }
+
+    const query = {
+      $or: [
+        { plateNumber: new RegExp(value, 'i') },
+        { model: new RegExp(value, 'i') },
+        { manufacturer: new RegExp(value, 'i') },
+        { 'owner.name': new RegExp(value, 'i') },
+        { vin: new RegExp(value, 'i') },
+      ]
+    };
+
+    const vehicles = await Vehicle.find(query);
+    res.json(vehicles);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};

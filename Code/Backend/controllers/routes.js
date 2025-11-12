@@ -241,3 +241,14 @@ exports.searchRoutes = async (req, res) => {
         res.status(500).json({ message: err.message });
     }
 };
+
+exports.getRouteByCode = async (req, res) => {
+  try {
+    const route = await Route.findOne({ routeCode: req.params.code })
+      .populate('originStop destinationStop stops.stop');
+    if (!route) return res.status(404).json({ message: 'Route not found' });
+    res.json(route);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};

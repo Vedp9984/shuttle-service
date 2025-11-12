@@ -8,6 +8,7 @@ const busStopRoutes = require('./routes/busstop');
 const journeyRoutes = require('./routes/journeys');
 const vehicleRoutes = require('./routes/vehicles');
 const userRoutes = require('./routes/user');
+const bookingRoutes = require('./routes/bookings');
 
 const app = express();
 
@@ -37,6 +38,7 @@ app.use('/api/busstops', busStopRoutes);
 app.use('/api/journeys', journeyRoutes);
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api/bookings', bookingRoutes);
 
 // Start server - IMPORTANT: Only one app.listen() call!
 app.listen(PORT, () => {

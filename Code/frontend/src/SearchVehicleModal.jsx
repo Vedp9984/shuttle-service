@@ -10,6 +10,7 @@ const SearchVehicleModal = ({ isOpen, onClose, onVehicleSelect }) => {
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  // 🔍 Search vehicles from backend
   const handleSearch = async () => {
     if (!searchValue.trim()) {
       toast.error('Please enter a search value');
@@ -17,15 +18,17 @@ const SearchVehicleModal = ({ isOpen, onClose, onVehicleSelect }) => {
     }
 
     setLoading(true);
+    setSearchResults([]); // clear previous results
+
     try {
-      // 👉 Call backend multi-field search
       const response = await axios.get(`${API_BASE_URL}/api/vehicles/search/query`, {
         params: { value: searchValue }
       });
 
-      setSearchResults(response.data);
+      const data = response.data || [];
+      setSearchResults(data);
 
-      if (response.data.length === 0) {
+      if (data.length === 0) {
         toast.info('No vehicles found');
       }
     } catch (err) {
@@ -50,13 +53,14 @@ const SearchVehicleModal = ({ isOpen, onClose, onVehicleSelect }) => {
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <h2>Search Vehicle</h2>
 
-        {/* Search input */}
+        {/* Search input + button */}
         <div className="search-controls">
           <input
             type="text"
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
-            placeholder="Search by ID, License, Owner, or Type"
+            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            placeholder="Search by plate number, model, manufacturer, or owner"
             className="search-input"
           />
 
@@ -80,19 +84,30 @@ const SearchVehicleModal = ({ isOpen, onClose, onVehicleSelect }) => {
                   className="result-item"
                   onClick={() => handleSelect(vehicle)}
                 >
-                  <div><strong>ID:</strong> {vehicle.vehicleId}</div>
-                  <div><strong>License:</strong> {vehicle.licensePlate}</div>
-                  <div><strong>Owner:</strong> {vehicle.ownerName}</div>
-                  <div><strong>Type:</strong> {vehicle.vehicleType}</div>
+                  <div><strong>ID:</strong> {vehicle._id}</div>
+                  <div><strong>Plate Number:</strong> {vehicle.plateNumber}</div>
+                  <div><strong>Model:</strong> {vehicle.model}</div>
+                  <div><strong>Manufacturer:</strong> {vehicle.manufacturer}</div>
+                  <div><strong>Owner:</strong> {vehicle.owner?.name || '—'}</div>
+                  <div><strong>VIN:</strong> {vehicle.vin || '—'}</div>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Footer buttons */}
+        {/* No results */}
+        {!loading && searchResults.length === 0 && searchValue && (
+          <p style={{ marginTop: '1rem', color: '#888' }}>
+            No results found for "{searchValue}"
+          </p>
+        )}
+
+        {/* Footer */}
         <div className="modal-buttons">
-          <button onClick={onClose} className="modal-button-secondary">Close</button>
+          <button onClick={onClose} className="modal-button-secondary">
+            Close
+          </button>
         </div>
       </div>
     </div>

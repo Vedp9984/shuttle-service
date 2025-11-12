@@ -1,21 +1,100 @@
-import React, { useState, useEffect } from 'react';
-import { logout, getCurrentUser } from './auth';
-import { useNavigate } from 'react-router-dom';
-import { FaHome, FaSignOutAlt, FaSearch, FaMapMarkerAlt, FaClock, FaBus, FaRoute, FaSync, FaExclamationTriangle, FaArrowRight, FaCreditCard, FaCalendarAlt } from 'react-icons/fa';
+// --- START OF FILE Homepage.jsx ---
 
+import React, { useState, useEffect } from 'react';
+import { logout, getCurrentUser } from './auth'; // Assuming auth helpers exist
+import { useNavigate } from 'react-router-dom';
+import { 
+    FaHome, FaSignOutAlt, FaSearch, FaMapMarkerAlt, FaClock, 
+    FaBus, FaArrowRight, FaCreditCard, FaCalendarAlt, FaHistory,
+    FaAngleDoubleRight, FaExclamationTriangle, FaArrowUp
+} from 'react-icons/fa';
+
+
+
+// --- UTILITY: Custom Fetch Hook ---
+// Manages loading/error state and handles Bearer token for protected routes
+const useFetch = (baseUrl, initialValue = []) => {
+    const [data, setData] = useState(initialValue);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+
+    const fetchData = async (params = {}) => {
+        setLoading(true);
+        setError(null);
+        
+        const { id, type, userId, ...queryParams } = params; // Destructure userId/type
+        
+        let fullUrl = baseUrl;
+        
+        if (id) {
+            fullUrl = `${baseUrl}/${id}`;
+        }
+        
+        // Build query string, ensuring userId and type are included for /api/bookings
+        const finalQueryParams = { ...queryParams };
+        if (userId) finalQueryParams.userId = userId;
+        if (type) finalQueryParams.type = type;
+        
+        if (Object.keys(finalQueryParams).length > 0) {
+            const query = new URLSearchParams(finalQueryParams).toString();
+            fullUrl = `${fullUrl}?${query}`;
+        }
+        
+        try {
+            const token = localStorage.getItem('token'); 
+            
+            const response = await fetch(fullUrl, {
+                headers: {
+                    // Though non-RBAC, keep Authorization header for other endpoints that might use it
+                    'Authorization': token ? `Bearer ${token}` : '',
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            if (!response.ok) {
+                const errorBody = await response.json();
+                throw new Error(errorBody.message || `Error: ${response.status} - ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            setData(result);
+            return result; 
+        } catch (err) {
+            console.error(`Error fetching ${baseUrl}:`, err);
+            setError(err.message || 'Failed to fetch data');
+            setData(Array.isArray(initialValue) ? [] : null);
+            return null;
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    useEffect(() => {
+        // FIX: Prevent automatic fetch for /api/bookings on mount since it requires userId
+        const isBookingRoute = baseUrl === '/api/bookings';
+        
+        if (baseUrl && !baseUrl.includes('/search') && !isBookingRoute) {
+             fetchData();
+        }
+    }, [baseUrl]);
+
+    return { data, loading, error, refetch: fetchData };
+};
+
+
+// --- HOMEPAGE COMPONENT ---
 const Homepage = () => {
     const navigate = useNavigate();
     const currentUser = getCurrentUser();
-    const [routes, setRoutes] = useState([]);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [journeysLoading, setJourneysLoading] = useState(false);
-    const [upcomingJourneys, setUpcomingJourneys] = useState([]);
-    const [routesError, setRoutesError] = useState(null);
-    const [journeysError, setJourneysError] = useState(null);
 
-    // New state for journey planning functionality
-    const [allBusStops, setAllBusStops] = useState([]);
+    // Data Fetching Hooks
+    const { data: allBusStops, refetch: fetchBusStops } = useFetch('/api/busstops');
+    const { data: upcomingJourneys, loading: journeysLoading, error: journeysError, refetch: fetchUpcomingJourneys } = useFetch('/api/journeys');
+    // FIX: Removed default fetch for bookings
+    const { data: userBookings, loading: bookingsLoading, error: bookingsError, refetch: fetchUserBookings } = useFetch('/api/bookings', []); 
+    const { refetch: fetchJourneyDetails } = useFetch('/api/journeys'); 
+
+    // Journey Planning State
     const [originStop, setOriginStop] = useState('');
     const [destinationStop, setDestinationStop] = useState('');
     const [selectedDate, setSelectedDate] = useState(
@@ -25,178 +104,44 @@ const Homepage = () => {
     const [journeySearchLoading, setJourneySearchLoading] = useState(false);
     const [journeySearchError, setJourneySearchError] = useState(null);
     const [selectedJourney, setSelectedJourney] = useState(null);
+    const [selectedSeatsCount, setSelectedSeatsCount] = useState(1);
+    
+    // Modal State
     const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [detailedJourney, setDetailedJourney] = useState(null);
+    const [showDetailsModal, setShowDetailsModal] = useState(false);
+    
+    // UI State
+    const [bookingTab, setBookingTab] = useState('upcoming');
+
 
     useEffect(() => {
-        fetchRoutes();
-        fetchUpcomingJourneys();
-        fetchBusStops(); // Add this new API call
-    }, []);
-
-    const fetchRoutes = async () => {
-        try {
-            setLoading(true);
-            setRoutesError(null);
-            const response = await fetch('/api/routes');
-            
-            if (!response.ok) {
-                throw new Error(`Error: ${response.status} - ${response.statusText}`);
-            }
-            
-            const data = await response.json();
-            console.log('Raw routes data:', data); // Debug log
-            
-            if (data.length > 0) {
-                console.log('Sample route structure:', JSON.stringify(data[0], null, 2));
-                console.log('Origin stop type:', typeof data[0].originStop, 
-                            'Value:', data[0].originStop);
-                console.log('Destination stop type:', typeof data[0].destinationStop, 
-                            'Value:', data[0].destinationStop);
-            }
-            
-            const transformedRoutes = data.map(route => {
-                // More robust property access with optional chaining and default values
-                return {
-                    _id: route._id || `temp-${Math.random()}`,
-                    name: route.routeName || route.name || 'Unnamed Route',
-                    code: route.routeCode || route.code || 'N/A',
-                    description: route.description || '',
-                    // Handle various formats of stop data
-                    startLocation: extractStopName(route.originStop),
-                    endLocation: extractStopName(route.destinationStop),
-                    // Handle different array structures
-                    busStops: Array.isArray(route.stops) ? 
-                              route.stops.map(stop => typeof stop.stop === 'object' ? stop.stop : stop) :
-                              [],
-                    isActive: route.isActive !== undefined ? route.isActive : true
-                };
-            });
-            
-            console.log('Transformed routes:', transformedRoutes); // Debug transformed data
-            setRoutes(transformedRoutes);
-        } catch (error) {
-            console.error('Error fetching routes:', error);
-            setRoutesError(error.message || 'Failed to fetch routes');
-        } finally {
-            setLoading(false);
+        fetchBusStops();
+        // FIX: Manual fetch for bookings only when currentUser ID is available
+        const userId = currentUser?._id || currentUser?.id;
+        if (userId) {
+             fetchUserBookings({ userId, type: 'upcoming' });
         }
-    };
+    }, [currentUser?.id, currentUser?._id]); 
 
-    // Helper function to extract stop name from different data structures
-    const extractStopName = (stop) => {
-        if (!stop) return 'Unknown';
+    // Helper: Dummy price calculator to mimic backend for the modal to work
+    const calculateJourneyPrice = (journey) => journey?.price || 120; 
+
+    // Helper to get full journey details for the modal
+    const viewJourneyDetails = async (journeyId) => {
+        const result = await fetchJourneyDetails({ id: journeyId });
         
-        if (typeof stop === 'string') {
-            return stop; // If it's just a string
-        }
-        
-        if (typeof stop === 'object') {
-            // Try different properties that might contain the name
-            if (stop.name) return stop.name;
-            if (stop.stopName) return stop.stopName;
-            if (stop.location) return stop.location;
-            if (stop._id) return `Stop ${stop._id}`;
-        }
-        
-        return 'Unknown';
-    };
-
-    const fetchUpcomingJourneys = async () => {
-        try {
-            setJourneysLoading(true);
-            setJourneysError(null);
-            const response = await fetch('/api/journeys');
-            
-            if (!response.ok) {
-                throw new Error(`Error: ${response.status} - ${response.statusText}`);
-            }
-            
-            const data = await response.json();
-            console.log('Raw journeys data:', data); // Debug log
-            
-            const transformedJourneys = data.map(journey => {
-                // More robust date parsing
-                let departureTime = new Date();
-                
-                try {
-                    if (journey.departureTime) {
-                        // Try parsing as ISO string
-                        departureTime = new Date(journey.departureTime);
-                    } else if (journey.date && journey.originDepartureTime) {
-                        // Try combining date and time
-                        const dateStr = journey.date;
-                        const timeStr = journey.originDepartureTime;
-                        
-                        // Check if date is in ISO format or MM/DD/YYYY
-                        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-                            departureTime = new Date(`${dateStr}T${timeStr}`);
-                        } else {
-                            // Try other common formats
-                            const [month, day, year] = dateStr.split('/');
-                            departureTime = new Date(`${year}-${month}-${day}T${timeStr}`);
-                        }
-                    }
-                    
-                    // Validate the date object
-                    if (isNaN(departureTime.getTime())) {
-                        console.warn('Invalid date for journey:', journey);
-                        // Fallback to current time + 1 hour
-                        departureTime = new Date();
-                        departureTime.setHours(departureTime.getHours() + 1);
-                    }
-                } catch (e) {
-                    console.error('Error parsing date:', e, journey);
-                    // Fallback date
-                    departureTime = new Date();
-                    departureTime.setHours(departureTime.getHours() + 1);
-                }
-                
-                return {
-                    _id: journey._id || `temp-${Math.random()}`,
-                    departureTime: departureTime,
-                    route: {
-                        name: journey.route?.routeName || journey.route?.name || 'Unknown Route',
-                        code: journey.route?.routeCode || journey.route?.code || 'N/A'
-                    },
-                    status: (journey.status || 'scheduled').toLowerCase(),
-                    vehicle: journey.vehicle || null,
-                    driver: journey.driver || null
-                };
-            });
-            
-            // Sort by departure time and take first 5
-            const sortedJourneys = transformedJourneys
-                .sort((a, b) => a.departureTime - b.departureTime)
-                .slice(0, 5);
-                
-            setUpcomingJourneys(sortedJourneys);
-        } catch (error) {
-            console.error('Error fetching journeys:', error);
-            setJourneysError(error.message || 'Failed to fetch journeys');
-        } finally {
-            setJourneysLoading(false);
-        }
-    };
-
-    const fetchBusStops = async () => {
-        try {
-            const response = await fetch('/api/busstops');
-            
-            if (!response.ok) {
-                throw new Error(`Error: ${response.status} - ${response.statusText}`);
-            }
-            
-            const data = await response.json();
-            console.log('Bus stops:', data);
-            setAllBusStops(data);
-        } catch (error) {
-            console.error('Error fetching bus stops:', error);
+        if (result) {
+            setDetailedJourney(result);
+            setShowDetailsModal(true);
+        } else {
+            alert('Failed to load full journey details.');
         }
     };
 
     const searchJourneys = async () => {
-        if (!originStop || !destinationStop) {
-            alert('Please select both origin and destination stops');
+        if (!originStop || !destinationStop || originStop === destinationStop) {
+            alert('Please select valid and different origin and destination stops.');
             return;
         }
         
@@ -205,12 +150,19 @@ const Homepage = () => {
         setAvailableJourneys([]);
         
         try {
+            const token = localStorage.getItem('token');
             const response = await fetch(
-                `/api/journeys/search?origin=${originStop}&destination=${destinationStop}&date=${selectedDate}`
+                `/api/journeys/search?origin=${originStop}&destination=${destinationStop}&date=${selectedDate}`, {
+                    headers: {
+                        'Authorization': token ? `Bearer ${token}` : '',
+                        'Content-Type': 'application/json',
+                    }
+                }
             );
             
             if (!response.ok) {
-                throw new Error(`Error: ${response.status} - ${response.statusText}`);
+                const errorBody = await response.json();
+                throw new Error(errorBody.message || response.statusText);
             }
             
             const data = await response.json();
@@ -222,36 +174,60 @@ const Homepage = () => {
             setJourneySearchLoading(false);
         }
     };
+    
+    const handleBookingTabChange = (type) => {
+        setBookingTab(type);
+        // FIX: Pass userId to fetchUserBookings
+        const userId = currentUser?._id || currentUser?.id;
+        if (userId) {
+            fetchUserBookings({ userId, type });
+        } else {
+            alert("User not logged in.");
+        }
+    };
 
     const bookJourney = (journey) => {
         setSelectedJourney(journey);
+        setSelectedSeatsCount(1);
         setShowPaymentModal(true);
     };
 
     const processPayment = async (paymentDetails) => {
+        if (!selectedJourney || !selectedSeatsCount) return;
+        
         try {
+            const token = localStorage.getItem('token');
+            const selectedSeats = Array.from({ length: selectedSeatsCount }, (_, i) => 
+                `S${(selectedJourney.totalSeats - selectedJourney.availableSeats) + i + 1}`
+            );
+            
             const response = await fetch('/api/bookings', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': token ? `Bearer ${token}` : '',
                 },
                 body: JSON.stringify({
                     journeyId: selectedJourney._id,
-                    userId: currentUser?.id,
-                    paymentDetails,
+                    // FIX: Pass userId in the body for POST
+                    userId: currentUser?._id || currentUser?.id, 
+                    selectedSeats: selectedSeats,
+                    pricePerSeat: selectedJourney.price, 
+                    paymentDetails, 
                 }),
             });
             
             if (!response.ok) {
-                throw new Error(`Error: ${response.status} - ${response.statusText}`);
+                const errorBody = await response.json();
+                throw new Error(errorBody.message || response.statusText);
             }
             
-            const data = await response.json();
-            alert('Journey booked successfully!');
+            alert(`Booking confirmed for ${selectedSeatsCount} seat(s)!`);
             setShowPaymentModal(false);
             setSelectedJourney(null);
             
-            fetchUpcomingJourneys();
+            searchJourneys(); 
+            handleBookingTabChange('upcoming');
         } catch (error) {
             console.error('Error booking journey:', error);
             alert('Failed to book journey: ' + error.message);
@@ -260,16 +236,23 @@ const Homepage = () => {
 
     const PaymentModal = () => {
         const [cardNumber, setCardNumber] = useState('');
-        const [expiryDate, setExpiryDate] = useState('');
-        const [cvv, setCvv] = useState('');
         const [name, setName] = useState('');
+        
+        const pricePerSeat = selectedJourney?.price || 120;
+        const totalPayable = pricePerSeat * selectedSeatsCount;
         
         const handleSubmit = (e) => {
             e.preventDefault();
+            if (selectedSeatsCount < 1 || selectedSeatsCount > selectedJourney?.availableSeats) {
+                alert('Invalid seat count.');
+                return;
+            }
+            if (cardNumber.length < 16 || name.length < 3) {
+                 alert('Please enter valid payment details.');
+                 return;
+            }
             processPayment({
                 cardNumber,
-                expiryDate,
-                cvv,
                 name
             });
         };
@@ -279,65 +262,45 @@ const Homepage = () => {
         return (
             <div style={styles.modalOverlay}>
                 <div style={styles.modal}>
-                    <h2 style={styles.modalTitle}>Complete Payment</h2>
+                    <h2 style={styles.modalTitle}>Book & Pay</h2>
                     <p style={styles.journeyDetails}>
-                        Journey from {selectedJourney?.origin} to {selectedJourney?.destination}
+                        <FaBus style={{marginRight: '5px'}} /> 
+                        {selectedJourney?.origin} <FaArrowRight style={{margin: '0 5px'}} /> {selectedJourney?.destination}
                         <br />
-                        Date: {new Date(selectedJourney?.departureTime).toLocaleDateString()}
+                        <FaCalendarAlt style={{marginRight: '5px'}} /> 
+                        {new Date(selectedJourney?.departureTime).toLocaleString()}
                         <br />
-                        Time: {new Date(selectedJourney?.departureTime).toLocaleTimeString()}
-                        <br />
-                        Price: ₹120
+                        <FaCreditCard style={{marginRight: '5px'}} /> 
+                        Price per seat: ₹{pricePerSeat} | Total Seats: {selectedSeatsCount}
                     </p>
                     
                     <form onSubmit={handleSubmit} style={styles.paymentForm}>
                         <div style={styles.formGroup}>
-                            <label style={styles.label}>Name on Card</label>
+                            <label style={styles.label}>Number of Seats</label>
                             <input 
-                                type="text" 
-                                value={name} 
-                                onChange={(e) => setName(e.target.value)} 
+                                type="number" 
+                                value={selectedSeatsCount} 
+                                onChange={(e) => {
+                                    const count = parseInt(e.target.value);
+                                    const maxSeats = selectedJourney?.availableSeats || 1;
+                                    setSelectedSeatsCount(Math.min(Math.max(1, count), maxSeats));
+                                }}
+                                min="1"
+                                max={selectedJourney?.availableSeats || 1}
                                 required 
                                 style={styles.input} 
                             />
+                            <small style={{color: '#999', marginTop: '5px'}}>Available: {selectedJourney?.availableSeats || 0}</small>
                         </div>
                         
                         <div style={styles.formGroup}>
-                            <label style={styles.label}>Card Number</label>
-                            <input 
-                                type="text" 
-                                value={cardNumber} 
-                                onChange={(e) => setCardNumber(e.target.value)} 
-                                placeholder="XXXX XXXX XXXX XXXX" 
-                                required 
-                                style={styles.input} 
-                            />
+                            <label style={styles.label}>Name on Card</label>
+                            <input type="text" value={name} onChange={(e) => setName(e.target.value)} required style={styles.input} />
                         </div>
                         
-                        <div style={styles.formRow}>
-                            <div style={styles.formGroup}>
-                                <label style={styles.label}>Expiry Date</label>
-                                <input 
-                                    type="text" 
-                                    value={expiryDate} 
-                                    onChange={(e) => setExpiryDate(e.target.value)} 
-                                    placeholder="MM/YY" 
-                                    required 
-                                    style={styles.input} 
-                                />
-                            </div>
-                            
-                            <div style={styles.formGroup}>
-                                <label style={styles.label}>CVV</label>
-                                <input 
-                                    type="text" 
-                                    value={cvv} 
-                                    onChange={(e) => setCvv(e.target.value)} 
-                                    placeholder="XXX" 
-                                    required 
-                                    style={styles.input} 
-                                />
-                            </div>
+                        <div style={styles.formGroup}>
+                            <label style={styles.label}>Card Number (Dummy)</label>
+                            <input type="text" value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} placeholder="XXXX XXXX XXXX XXXX" required style={styles.input} />
                         </div>
                         
                         <div style={styles.formActions}>
@@ -345,10 +308,102 @@ const Homepage = () => {
                                 Cancel
                             </button>
                             <button type="submit" style={styles.payButton}>
-                                Pay ₹120
+                                Pay ₹{totalPayable}
                             </button>
                         </div>
                     </form>
+                </div>
+            </div>
+        );
+    };
+    
+    const JourneyDetailsModal = () => {
+        if (!showDetailsModal || !detailedJourney) return null;
+
+        const route = detailedJourney.route;
+        const driver = detailedJourney.driver;
+        const vehicle = detailedJourney.vehicle;
+        const stops = route?.stops || [];
+
+        return (
+            <div style={styles.modalOverlay}>
+                <div style={styles.modal} className="journey-details-modal">
+                    <h2 style={styles.modalTitle}>Journey Details - {route?.routeName}</h2>
+                    <p style={{color: '#ccc', marginBottom: '10px'}}>
+                        **Route Code:** {route?.routeCode} | **Date:** {new Date(detailedJourney.date).toLocaleDateString()}
+                    </p>
+                    
+                    <div style={styles.detailsSection}>
+                        <h4 style={styles.detailsSubtitle}>Timeline</h4>
+                        <div style={styles.timeline}>
+                            {/* Origin Stop */}
+                            <div style={styles.timelineItem}>
+                                <FaMapMarkerAlt style={styles.timelineIcon} />
+                                <div>
+                                    <strong>{route?.originStop?.stopName} (Origin)</strong>
+                                    <p>{detailedJourney.originDepartureTime || route?.originDepartureTime}</p>
+                                </div>
+                            </div>
+                            
+                            {/* Intermediate Stops */}
+                            {stops.map((stop, index) => (
+                                <div key={index} style={styles.timelineItem}>
+                                    <FaBus style={styles.timelineIcon} />
+                                    <div>
+                                        <strong>{stop.stop?.stopName}</strong>
+                                        <p>Arr: {stop.arrivalTime || 'N/A'} | Dep: {stop.departureTime || 'N/A'}</p>
+                                    </div>
+                                </div>
+                            ))}
+                            
+                            {/* Destination Stop */}
+                            <div style={styles.timelineItem}>
+                                <FaArrowUp style={styles.timelineIcon} />
+                                <div>
+                                    <strong>{route?.destinationStop?.stopName} (Destination)</strong>
+                                    <p>Arrival: {detailedJourney.destinationArrivalTime || route?.destinationArrivalTime}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style={styles.detailsSection}>
+                        <h4 style={styles.detailsSubtitle}>Vehicle & Driver</h4>
+                        <p style={styles.detailText}>**Driver:** {driver?.firstName} {driver?.lastName} ({driver?.email})</p>
+                        <p style={styles.detailText}>**Vehicle:** {vehicle?.model} - {vehicle?.plateNumber} (Seats: {vehicle?.totalSeats})</p>
+                        <p style={styles.detailText}>**Available Seats:** {detailedJourney.totalSeats - detailedJourney.bookedSeats}</p>
+                    </div>
+
+                    <div style={{ ...styles.formActions, marginTop: '20px' }}>
+                        <button 
+                            type="button" 
+                            onClick={() => setShowDetailsModal(false)} 
+                            style={styles.cancelButton}
+                        >
+                            Close
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const pricePerSeat = calculateJourneyPrice(detailedJourney);
+                                
+                                bookJourney({ 
+                                    _id: detailedJourney._id, 
+                                    origin: route.originStop.stopName, 
+                                    destination: route.destinationStop.stopName, 
+                                    departureTime: detailedJourney.date,
+                                    price: pricePerSeat, 
+                                    availableSeats: detailedJourney.totalSeats - detailedJourney.bookedSeats,
+                                    totalSeats: detailedJourney.totalSeats
+                                });
+                                setShowDetailsModal(false);
+                            }}
+                            style={styles.payButton}
+                            disabled={detailedJourney.totalSeats - detailedJourney.bookedSeats <= 0}
+                        >
+                            <FaCreditCard style={{marginRight: '5px'}} /> Book Now
+                        </button>
+                    </div>
                 </div>
             </div>
         );
@@ -358,59 +413,8 @@ const Homepage = () => {
         logout();
         navigate('/login');
     };
-
-    const handleSearch = async () => {
-        if (!searchTerm.trim()) {
-            fetchRoutes();
-            return;
-        }
-
-        try {
-            setLoading(true);
-            setRoutesError(null);
-            const response = await fetch(`/api/routes?search=${encodeURIComponent(searchTerm)}`);
-            
-            if (!response.ok) {
-                throw new Error(`Error: ${response.status} - ${response.statusText}`);
-            }
-            
-            const data = await response.json();
-            console.log('Search results raw data:', data);
-            
-            const transformedRoutes = data.map(route => {
-                return {
-                    _id: route._id || `temp-${Math.random()}`,
-                    name: route.routeName || route.name || 'Unnamed Route',
-                    code: route.routeCode || route.code || 'N/A',
-                    description: route.description || '',
-                    startLocation: extractStopName(route.originStop),
-                    endLocation: extractStopName(route.destinationStop),
-                    busStops: Array.isArray(route.stops) ? 
-                              route.stops.map(stop => typeof stop.stop === 'object' ? stop.stop : stop) :
-                              [],
-                    isActive: route.isActive !== undefined ? route.isActive : true
-                };
-            });
-            
-            setRoutes(transformedRoutes);
-        } catch (error) {
-            console.error('Error searching routes:', error);
-            setRoutesError(error.message || 'Failed to search routes');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleKeyPress = (e) => {
-        if (e.key === 'Enter') {
-            handleSearch();
-        }
-    };
-
-    const handleRefresh = () => {
-        fetchRoutes();
-        fetchUpcomingJourneys();
-    };
+    
+    // --- Render ---
 
     return (
         <div style={styles.dashboard}>
@@ -425,10 +429,7 @@ const Homepage = () => {
                     </div>
                 </div>
                 <div style={styles.headerRight}>
-                    <button style={styles.iconButton} onClick={handleRefresh} title="Refresh Data">
-                        <FaSync />
-                    </button>
-                    <button style={styles.iconButton} onClick={() => navigate('/homepage')} title="Home">
+                    <button style={styles.iconButton} onClick={() => navigate('/dashboard')} title="Dashboard">
                         <FaHome />
                     </button>
                     <button style={styles.iconButton} onClick={handleLogout} title="Logout">
@@ -438,51 +439,57 @@ const Homepage = () => {
             </header>
 
             <main style={styles.mainContent}>
-                {/* New Journey Planning Section */}
+                
+                {/* 1. JOURNEY PLANNING SECTION */}
                 <section style={styles.bookingSection}>
                     <h3 style={styles.sectionTitle}>
-                        <FaBus style={styles.sectionIcon} />
-                        Plan Your Journey
+                        <FaSearch style={styles.sectionIcon} />
+                        Search & Book Your Journey
                     </h3>
                     
                     <div style={styles.bookingForm}>
                         <div style={styles.formRow}>
+                            {/* Origin Stop */}
                             <div style={styles.formGroup}>
-                                <label style={styles.label}>From</label>
+                                <label style={styles.label}>Origin Stop</label>
                                 <select 
                                     value={originStop}
                                     onChange={(e) => setOriginStop(e.target.value)}
                                     style={styles.select}
+                                    disabled={allBusStops.length === 0}
                                 >
                                     <option value="">Select Origin</option>
                                     {allBusStops.map(stop => (
                                         <option key={stop._id} value={stop._id}>
-                                            {stop.name} - {stop.location}
+                                            {stop.stopName}
                                         </option>
                                     ))}
                                 </select>
                             </div>
                             
                             <div style={styles.iconContainer}>
-                                <FaArrowRight style={styles.arrowIcon} />
+                                <FaAngleDoubleRight style={styles.arrowIcon} />
                             </div>
                             
+                            {/* Destination Stop */}
                             <div style={styles.formGroup}>
-                                <label style={styles.label}>To</label>
+                                <label style={styles.label}>Destination Stop</label>
                                 <select 
                                     value={destinationStop}
                                     onChange={(e) => setDestinationStop(e.target.value)}
                                     style={styles.select}
+                                    disabled={allBusStops.length === 0}
                                 >
                                     <option value="">Select Destination</option>
                                     {allBusStops.map(stop => (
                                         <option key={stop._id} value={stop._id}>
-                                            {stop.name} - {stop.location}
+                                            {stop.stopName}
                                         </option>
                                     ))}
                                 </select>
                             </div>
                             
+                            {/* Date */}
                             <div style={styles.formGroup}>
                                 <label style={styles.label}>Date</label>
                                 <div style={styles.dateInputContainer}>
@@ -496,11 +503,11 @@ const Homepage = () => {
                                     />
                                 </div>
                             </div>
+                            
+                            <button onClick={searchJourneys} style={styles.searchButton}>
+                                <FaSearch style={{marginRight: '5px'}} /> Find Journeys
+                            </button>
                         </div>
-                        
-                        <button onClick={searchJourneys} style={styles.searchButton}>
-                            Find Journeys
-                        </button>
                     </div>
                     
                     {/* Journey Search Results */}
@@ -510,211 +517,51 @@ const Homepage = () => {
                             <p style={styles.loadingText}>Searching for journeys...</p>
                         </div>
                     ) : journeySearchError ? (
-                        <div style={styles.errorMessage}>
-                            <FaExclamationTriangle style={styles.errorIcon} />
-                            <p>{journeySearchError}</p>
-                            <button onClick={searchJourneys} style={styles.retryButton}>
-                                Retry
-                            </button>
-                        </div>
+                        <ErrorMessage message={journeySearchError} onRetry={searchJourneys} />
                     ) : availableJourneys.length > 0 ? (
-                        <div style={styles.journeyResultsContainer}>
-                            <h4 style={styles.resultsTitle}>Available Journeys</h4>
-                            {availableJourneys.map((journey, index) => (
-                                <div key={journey._id || index} style={styles.journeyResult}>
-                                    <div style={styles.journeyInfo}>
-                                        <div style={styles.journeyTiming}>
-                                            <div style={styles.searchResultTime}>
-                                                {new Date(journey.departureTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                            </div>
-                                            <div style={styles.journeyDuration}>
-                                                {journey.duration || '45m'}
-                                            </div>
-                                        </div>
-                                        
-                                        <div style={styles.journeyRoute}>
-                                            <div>{journey.route?.routeName || 'Direct Route'}</div>
-                                            <div style={styles.routeCode}>{journey.route?.routeCode || 'DR1'}</div>
-                                        </div>
-                                        
-                                        <div style={styles.journeyPrice}>
-                                            ₹{journey.price || '120'}
-                                        </div>
-                                    </div>
-                                    
-                                    <button 
-                                        onClick={() => bookJourney(journey)} 
-                                        style={styles.bookButton}
-                                    >
-                                        <FaCreditCard style={{marginRight: '5px'}} /> Book Now
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    ) : originStop && destinationStop ? (
-                        <div style={styles.noResults}>
-                            <FaBus style={styles.noResultsIcon} />
-                            <p>No journeys found between the selected stops on this date.</p>
-                        </div>
+                        <JourneyResults 
+                            journeys={availableJourneys} 
+                            onBook={bookJourney} 
+                            onViewDetails={viewJourneyDetails}
+                        />
+                    ) : originStop && destinationStop && !journeySearchLoading ? (
+                        <NoResults message="No journeys found for your criteria." />
                     ) : null}
                 </section>
 
-                <section style={styles.searchSection}>
-                    <h3 style={styles.sectionTitle}>
-                        <FaSearch style={styles.sectionIcon} />
-                        Find Routes
-                    </h3>
-                    <div style={styles.searchContainer}>
-                        <input
-                            type="text"
-                            placeholder="Search for routes, destinations, or bus stops..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            onKeyPress={handleKeyPress}
-                            style={styles.searchInput}
-                        />
-                        <button onClick={handleSearch} style={styles.searchButton}>
-                            <FaSearch />
-                        </button>
-                    </div>
-                </section>
-
-                <section style={styles.statsSection}>
-                    <div style={styles.statCard}>
-                        <FaRoute style={styles.statIcon} />
-                        <div>
-                            <h4 style={styles.statNumber}>{routes.length}</h4>
-                            <p style={styles.statLabel}>Available Routes</p>
-                        </div>
-                    </div>
-                    <div style={styles.statCard}>
-                        <FaBus style={styles.statIcon} />
-                        <div>
-                            <h4 style={styles.statNumber}>{upcomingJourneys.length}</h4>
-                            <p style={styles.statLabel}>Upcoming Journeys</p>
-                        </div>
-                    </div>
-                    <div style={styles.statCard}>
-                        <FaClock style={styles.statIcon} />
-                        <div>
-                            <h4 style={styles.statNumber}>24/7</h4>
-                            <p style={styles.statLabel}>Service Hours</p>
-                        </div>
-                    </div>
-                </section>
-
+           
+                
+                
+                {/* 3. USER BOOKINGS (Past, Upcoming, Current) */}
                 <section style={styles.routesSection}>
                     <h3 style={styles.sectionTitle}>
-                        <FaRoute style={styles.sectionIcon} />
-                        Available Routes
+                        <FaHistory style={styles.sectionIcon} />
+                        My Bookings
                     </h3>
                     
-                    {routesError ? (
-                        <div style={styles.errorMessage}>
-                            <FaExclamationTriangle style={styles.errorIcon} />
-                            <p>{routesError}</p>
-                            <button onClick={fetchRoutes} style={styles.retryButton}>
-                                Retry
+                    <div style={styles.tabContainer}>
+                        {['upcoming', 'current', 'past', 'all'].map(tab => (
+                            <button
+                                key={tab}
+                                style={{ ...styles.tabButton, ...(bookingTab === tab ? styles.tabButtonActive : {}) }}
+                                onClick={() => handleBookingTabChange(tab)}
+                            >
+                                {tab.charAt(0).toUpperCase() + tab.slice(1)}
                             </button>
-                        </div>
-                    ) : loading ? (
-                        <div style={styles.loadingContainer}>
-                            <div style={styles.loadingSpinner}></div>
-                            <p style={styles.loadingText}>Loading routes...</p>
-                        </div>
-                    ) : routes.length > 0 ? (
-                        <div style={styles.routesGrid}>
-                            {routes.map((route, index) => (
-                                <div key={route._id || index} style={styles.routeCard}>
-                                    <div style={styles.routeHeader}>
-                                        <h4 style={styles.routeName}>{route.name || `Route ${route.code}`}</h4>
-                                        <span style={styles.routeCode}>{route.code}</span>
-                                    </div>
-                                    <div style={styles.routeDetails}>
-                                        <div style={styles.routeStop}>
-                                            <FaMapMarkerAlt style={styles.stopIcon} />
-                                            <span>From: {route.startLocation || 'N/A'}</span>
-                                        </div>
-                                        <div style={styles.routeStop}>
-                                            <FaMapMarkerAlt style={styles.stopIcon} />
-                                            <span>To: {route.endLocation || 'N/A'}</span>
-                                        </div>
-                                        {route.busStops && route.busStops.length > 0 && (
-                                            <div style={styles.stopCount}>
-                                                {route.busStops.length} stops
-                                            </div>
-                                        )}
-                                        {!route.isActive && (
-                                            <div style={styles.inactiveRoute}>
-                                                This route is currently inactive
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                        ))}
+                    </div>
+                    
+                    {bookingsLoading ? (
+                        <div style={styles.loadingContainer}><div style={styles.loadingSpinner}></div></div>
+                    ) : bookingsError ? (
+                        <ErrorMessage message={bookingsError} onRetry={() => handleBookingTabChange(bookingTab)} />
+                    ) : userBookings.length > 0 ? (
+                        <UserBookingsList bookings={userBookings} />
                     ) : (
-                        <div style={styles.noResults}>
-                            <FaBus style={styles.noResultsIcon} />
-                            <p>No routes found. {searchTerm && `Try searching for something else.`}</p>
-                        </div>
+                        <NoResults message={`No ${bookingTab} bookings found.`} />
                     )}
                 </section>
 
-                <section style={styles.journeysSection}>
-                    <h3 style={styles.sectionTitle}>
-                        <FaClock style={styles.sectionIcon} />
-                        Upcoming Journeys
-                    </h3>
-                    
-                    {journeysError ? (
-                        <div style={styles.errorMessage}>
-                            <FaExclamationTriangle style={styles.errorIcon} />
-                            <p>{journeysError}</p>
-                            <button onClick={fetchUpcomingJourneys} style={styles.retryButton}>
-                                Retry
-                            </button>
-                        </div>
-                    ) : journeysLoading ? (
-                        <div style={styles.loadingContainer}>
-                            <div style={styles.loadingSpinner}></div>
-                            <p style={styles.loadingText}>Loading journeys...</p>
-                        </div>
-                    ) : upcomingJourneys.length > 0 ? (
-                        <div style={styles.journeysList}>
-                            {upcomingJourneys.map((journey, index) => (
-                                <div key={journey._id || index} style={styles.journeyCard}>
-                                    <div style={styles.journeyTime}>
-                                        <strong>{journey.departureTime.toLocaleTimeString()}</strong>
-                                        <div style={styles.journeyDate}>
-                                            {journey.departureTime.toLocaleDateString()}
-                                        </div>
-                                    </div>
-                                    <div style={styles.journeyRoute}>
-                                        {journey.route?.name || 'Route Name'}
-                                        <div style={styles.journeyCode}>{journey.route?.code}</div>
-                                    </div>
-                                    <div style={styles.journeyStatus}>
-                                        <span style={{
-                                            ...styles.statusBadge,
-                                            backgroundColor: 
-                                                journey.status === 'ongoing' ? '#28a745' : 
-                                                journey.status === 'completed' ? '#6c757d' :
-                                                journey.status === 'cancelled' ? '#dc3545' : '#007bff'
-                                        }}>
-                                            {journey.status}
-                                        </span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div style={styles.noResults}>
-                            <FaBus style={styles.noResultsIcon} />
-                            <p>No upcoming journeys found.</p>
-                        </div>
-                    )}
-                </section>
             </main>
 
             <footer style={styles.bottomNav}>
@@ -729,10 +576,146 @@ const Homepage = () => {
             </footer>
             
             <PaymentModal />
+            <JourneyDetailsModal />
         </div>
     );
 };
 
+// --- Custom Components ---
+
+const ErrorMessage = ({ message, onRetry }) => (
+    <div style={styles.errorMessage}>
+        <FaExclamationTriangle style={styles.errorIcon} />
+        <p>{message}</p>
+        {onRetry && <button onClick={onRetry} style={styles.retryButton}>Retry</button>}
+    </div>
+);
+
+const NoResults = ({ message }) => (
+    <div style={styles.noResults}>
+        <FaBus style={styles.noResultsIcon} />
+        <p>{message}</p>
+    </div>
+);
+
+const JourneyResults = ({ journeys, onBook, onViewDetails }) => (
+    <div style={styles.journeyResultsContainer}>
+        <h4 style={styles.resultsTitle}>Found {journeys.length} Available Journeys</h4>
+        {journeys.map((journey, index) => (
+            <div key={journey._id || index} style={styles.journeyResult}>
+                <div 
+                    style={{...styles.journeyInfo, cursor: 'pointer', flex: 2.5}} 
+                    onClick={() => onViewDetails(journey._id)} 
+                >
+                    <div style={styles.journeyTiming}>
+                        <div style={styles.searchResultTime}>
+                            {new Date(journey.departureTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        </div>
+                        <div style={styles.journeyDuration}>
+                            {journey.duration || 'N/A'}
+                        </div>
+                    </div>
+                    
+                    <div style={styles.routeStopsDisplay}>
+                        <div style={styles.routeStopsNames}>
+                            <strong>{journey.origin}</strong>
+                            <FaArrowRight style={{margin: '0 5px', fontSize: '0.8rem', color: '#FFDB15'}} />
+                            <strong>{journey.destination}</strong>
+                        </div>
+                        <div style={styles.routeCode}>Route: {journey.route?.routeName} ({journey.route?.routeCode})</div>
+                    </div>
+                    
+                    <div style={styles.journeyPrice}>
+                        ₹{journey.price}
+                    </div>
+                    
+                    <div style={styles.seatAvailability}>
+                        {journey.availableSeats} / {journey.totalSeats} Seats Available
+                    </div>
+                </div>
+                
+                <div style={{display: 'flex', gap: '10px'}}>
+                    <button 
+                        onClick={() => onViewDetails(journey._id)} 
+                        style={styles.detailsButton}
+                    >
+                        Details
+                    </button>
+                    <button 
+                        onClick={() => onBook(journey)} 
+                        style={styles.bookButton}
+                        disabled={journey.availableSeats <= 0}
+                    >
+                        <FaCreditCard style={{marginRight: '5px'}} /> {journey.availableSeats > 0 ? 'Book' : 'Full'}
+                    </button>
+                </div>
+            </div>
+        ))}
+    </div>
+);
+
+const UpcomingJourneysList = ({ journeys }) => (
+    <div style={styles.journeysList}>
+        {journeys.map((journey, index) => (
+            <div key={journey._id || index} style={styles.journeyCard}>
+                <div style={styles.journeyTime}>
+                    <strong>{new Date(journey.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</strong>
+                    <div style={styles.journeyDate}>
+                        {new Date(journey.date).toLocaleDateString()}
+                    </div>
+                </div>
+                <div style={styles.journeyRoute}>
+                    {journey.route?.originStop?.stopName} <FaArrowRight style={{fontSize: '0.7rem', color: '#999'}} /> {journey.route?.destinationStop?.stopName}
+                    <div style={styles.journeyCode}>{journey.route?.routeName} ({journey.route?.routeCode})</div>
+                </div>
+                <div style={styles.journeyStatus}>
+                    <span style={{
+                        ...styles.statusBadge,
+                        backgroundColor: journey.status === 'Ongoing' ? '#28a745' : '#007bff'
+                    }}>
+                        {journey.status}
+                    </span>
+                </div>
+            </div>
+        ))}
+    </div>
+);
+
+const UserBookingsList = ({ bookings }) => (
+    <div style={styles.journeysList}>
+        {bookings.map((booking, index) => {
+            const departureTime = new Date(booking.journey.date);
+            
+            return (
+                <div key={booking._id || index} style={styles.journeyCard}>
+                    <div style={styles.journeyTime}>
+                        <strong>{departureTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</strong>
+                        <div style={styles.journeyDate}>
+                            {departureTime.toLocaleDateString()}
+                        </div>
+                    </div>
+                    <div style={styles.journeyRoute}>
+                        {booking.journey.route?.originStop?.stopName} <FaArrowRight style={{fontSize: '0.7rem', color: '#999'}} /> {booking.journey.route?.destinationStop?.stopName}
+                        <div style={styles.journeyCode}>
+                            Seats: {booking.seats.length} | Total: ₹{booking.totalAmount}
+                        </div>
+                    </div>
+                    <div style={styles.journeyStatus}>
+                        <span style={{
+                            ...styles.statusBadge,
+                            backgroundColor: booking.status === 'Confirmed' ? '#28a745' : '#dc3545'
+                        }}>
+                            {booking.status}
+                        </span>
+                    </div>
+                </div>
+            );
+        })}
+    </div>
+);
+
+
+// --- Styles (Complete) ---
 const styles = {
     dashboard: {
         backgroundColor: '#121212',
@@ -837,10 +820,11 @@ const styles = {
         color: 'black',
         border: 'none',
         borderRadius: '8px',
-        padding: '0 20px',
+        padding: '12px 20px', 
         cursor: 'pointer',
         fontSize: '1rem',
         fontWeight: 'bold',
+        height: '46px',
     },
     statsSection: {
         display: 'grid',
@@ -1004,7 +988,8 @@ const styles = {
     journeyRoute: {
         flex: 2,
         color: '#ccc',
-        textAlign: 'center',
+        textAlign: 'left',
+        marginLeft: '20px',
     },
     journeyStatus: {
         flex: 1,
@@ -1154,7 +1139,7 @@ const styles = {
         display: 'flex',
         flexDirection: 'column',
     },
-    searchResultTime: {  // Renamed from journeyTime to searchResultTime
+    searchResultTime: {
         fontSize: '1.2rem',
         color: 'white',
         fontWeight: 'bold',
@@ -1170,6 +1155,17 @@ const styles = {
     },
     bookButton: {
         backgroundColor: '#00A3A3',
+        color: 'white',
+        border: 'none',
+        borderRadius: '8px',
+        padding: '10px 15px',
+        fontWeight: 'bold',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+    },
+    detailsButton: {
+        backgroundColor: '#555',
         color: 'white',
         border: 'none',
         borderRadius: '8px',
@@ -1197,6 +1193,8 @@ const styles = {
         padding: '20px',
         width: '90%',
         maxWidth: '500px',
+        maxHeight: '90vh',
+        overflowY: 'auto',
     },
     modalTitle: {
         color: '#FFDB15',
@@ -1249,6 +1247,66 @@ const styles = {
     '@keyframes spin': {
         '0%': { transform: 'rotate(0deg)' },
         '100%': { transform: 'rotate(360deg)' },
+    },
+    routeStopsDisplay: { flex: 1.5 },
+    routeStopsNames: { color: 'white', display: 'flex', alignItems: 'center' },
+    seatAvailability: { fontSize: '0.9rem', color: '#FFDB15', fontWeight: 'bold' },
+    tabContainer: {
+        display: 'flex',
+        marginBottom: '1rem',
+        gap: '10px'
+    },
+    tabButton: {
+        backgroundColor: '#444',
+        color: '#ccc',
+        border: 'none',
+        padding: '10px 20px',
+        borderRadius: '8px',
+        cursor: 'pointer',
+        fontWeight: 'bold',
+        transition: 'background-color 0.2s',
+    },
+    tabButtonActive: {
+        backgroundColor: '#00A3A3',
+        color: 'white',
+    },
+    detailsSection: {
+        backgroundColor: '#444',
+        padding: '15px',
+        borderRadius: '8px',
+        marginBottom: '15px',
+    },
+    detailsSubtitle: {
+        color: '#FFDB15',
+        marginTop: 0,
+        marginBottom: '10px',
+        fontSize: '1.1rem',
+    },
+    detailText: {
+        color: '#ccc',
+        fontSize: '0.9rem',
+        margin: '5px 0',
+    },
+    timeline: {
+        borderLeft: '2px solid #555',
+        paddingLeft: '20px',
+    },
+    timelineItem: {
+        position: 'relative',
+        marginBottom: '15px',
+        color: 'white',
+        fontSize: '0.9rem',
+    },
+    timelineIcon: {
+        position: 'absolute',
+        left: '-31px',
+        top: '2px',
+        backgroundColor: '#333',
+        color: '#00A3A3',
+        borderRadius: '50%',
+        padding: '5px',
+        fontSize: '1rem',
+        border: '2px solid #555',
     },
 };
 

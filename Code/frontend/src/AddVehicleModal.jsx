@@ -38,16 +38,22 @@ const AddVehicleModal = ({ isOpen, onClose }) => {
           [ownerProp]: value
         }
       }));
-    } else {
+    } 
+      else if (['totalSeats', 'standingCapacity', 'year'].includes(name)) {
+    setFormData(prev => ({
+      ...prev,
+      [name]: value === '' ? '' : Number(value) // ✅ convert to number or allow empty
+    }));
+  }else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
   };
 
   const handleSubmit = async () => {
-    const { plateNumber, model, totalSeats, owner } = formData;
-
+    const { plateNumber, model, standingCapacity, owner } = formData;
+    console.log('Submitting vehicle with data:', formData);
     // Validate required fields
-    if (!plateNumber || !model || !totalSeats || !owner.name) {
+    if (!plateNumber || !model || !standingCapacity || !owner.name) {
       toast.error('Vehicle Plate Number, Model, Total Seats, and Owner Name are required.');
       return;
     }

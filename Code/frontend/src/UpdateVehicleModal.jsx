@@ -121,10 +121,10 @@ const UpdateVehicleModal = ({ isOpen, onClose }) => {
       return;
     }
 
-    const { plateNumber, model, totalSeats, owner } = formData;
+    const { plateNumber, model, standingCapacity, owner } = formData;
     
     // Validate required fields
-    if (!plateNumber || !model || !totalSeats || !owner.name) {
+    if (!plateNumber || !model || !standingCapacity || !owner.name) {
       toast.error('Vehicle Plate Number, Model, Total Seats, and Owner Name are required.');
       return;
     }

@@ -50,6 +50,8 @@ const AddJourneyModal = ({ isOpen, onClose }) => {
         destinationArrivalTime: route.destinationArrivalTime || ''
       }));
 
+      
+
       // Generate available dates
       const dayMap = { Sunday:0, Monday:1, Tuesday:2, Wednesday:3, Thursday:4, Friday:5, Saturday:6 };
       const routeDays = route.daysAvailable.map(d => dayMap[d]);

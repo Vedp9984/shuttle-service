@@ -34,15 +34,16 @@ const EditRouteModal = ({ isOpen, onClose }) => {
 
     setFetching(true);
     try {
-      const res = await axios.get(`${API_BASE_URL}/api/routes?routeCode=${routeCodeInput}`);
-      if (!res.data || res.data.length === 0) {
+      const id = await axios.get(`${API_BASE_URL}/api/routes/code/${routeCodeInput}`);
+      console.log('Route ID response:', id);
+      if (!id.data || id.data.length === 0) {
         toast.error('Route not found');
         setFetching(false);
         return;
       }
-
-      const data = res.data[0];
-
+      const res = await axios.get(`${API_BASE_URL}/api/routes/${id.data.id}`);
+      const data = res.data;
+       console.log('Fetched route data:', data);
       // Map stops to always use bus stop _id
       const stops = (data.stops || []).map(s => ({
         stop: typeof s.stop === 'object' ? s.stop._id : s.stop,
